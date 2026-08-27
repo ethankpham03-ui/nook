@@ -42,14 +42,15 @@ This runs linting, TypeScript checks, and a production build.
 ## Production
 
 ```bash
-npm run build
-npm run start
+npm run check
+npm run deploy:vinext
 ```
 
 Set `SITE_ORIGIN` to the app's absolute public URL in the deployment
 environment (for example, `https://nook.example.com`). Nook uses it to emit
 correct Open Graph and Twitter image URLs. Local development does not require
-this variable.
+this variable. The deploy command builds and publishes the Worker using
+`wrangler.jsonc`.
 
 ## Privacy model
 
@@ -59,8 +60,9 @@ storage. Export a JSON backup before clearing browser data or moving devices.
 
 ## Stack
 
-React 19, TypeScript, Vinext, Vite, Tailwind CSS, and the browser Storage and
-Service Worker APIs. Interface icons are provided by Phosphor Icons.
+React 19, TypeScript, Vinext, Vite, Tailwind CSS, Cloudflare Workers, and the
+browser Storage and Service Worker APIs. Interface icons are provided by
+Phosphor Icons.
 
 ## Product documentation
 
