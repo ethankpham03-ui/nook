@@ -472,16 +472,22 @@ textarea:focus-visible {
 }
 
 @media (display-mode: standalone) and (pointer: coarse) {
+  .nook-app {
+    --standalone-dock-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 22px));
+  }
   .liquid-nav {
-    bottom: 8px;
+    bottom: var(--standalone-dock-bottom);
   }
   .mobile-toast {
-    bottom: calc(5.8rem + 8px);
+    bottom: calc(5.8rem + var(--standalone-dock-bottom));
   }
 }
 
-.nook-app.is-standalone .liquid-nav { bottom: 8px; }
-.nook-app.is-standalone .mobile-toast { bottom: calc(5.8rem + 8px); }
+.nook-app.is-standalone {
+  --standalone-dock-bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 22px));
+}
+.nook-app.is-standalone .liquid-nav { bottom: var(--standalone-dock-bottom); }
+.nook-app.is-standalone .mobile-toast { bottom: calc(5.8rem + var(--standalone-dock-bottom)); }
 
 @media (max-width: 767px) and (max-height: 520px) {
   .focus-card { min-height: 330px; }
