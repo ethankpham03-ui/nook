@@ -3,9 +3,9 @@
 import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
 import { CheckSquareOffset } from '@phosphor-icons/react/CheckSquareOffset';
 import { Check } from '@phosphor-icons/react/Check';
+import { Command as CommandIcon } from '@phosphor-icons/react/Command';
 import { DownloadSimple } from '@phosphor-icons/react/DownloadSimple';
 import { House } from '@phosphor-icons/react/House';
-import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
 import { Moon } from '@phosphor-icons/react/Moon';
 import { NotePencil } from '@phosphor-icons/react/NotePencil';
 import { Pause } from '@phosphor-icons/react/Pause';
@@ -17,7 +17,7 @@ import { Timer } from '@phosphor-icons/react/Timer';
 import { X } from '@phosphor-icons/react/X';
 import Image from 'next/image';
 import type { ChangeEvent, CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type Task = {
   id: string;
@@ -37,6 +37,23 @@ type Habit = {
 
 type AppTab = 'today' | 'focus' | 'home' | 'habits' | 'notes';
 
+type NookSnapshot = {
+  tasks: Task[];
+  habits: Habit[];
+  note: string;
+  selectedTaskId: string;
+  timerPreset: number;
+  timerSeconds: number;
+  weekMinutes: number[];
+  dark: boolean;
+};
+
+type UndoState =
+  | { kind: 'delete'; task: Task; index: number; selectedTaskId: string }
+  | { kind: 'import'; snapshot: NookSnapshot };
+
+type SaveStatus = 'loading' | 'saving' | 'saved' | 'error';
+
 const TABS: Array<{ id: AppTab; label: string; accent: string; wash: string; icon: typeof House }> = [
   { id: 'today', label: 'Today', accent: '#dfff64', wash: '#eef8bd', icon: CheckSquareOffset },
   { id: 'habits', label: 'Habits', accent: '#d8c1ff', wash: '#eee5fb', icon: Repeat },
@@ -46,7 +63,9 @@ const TABS: Array<{ id: AppTab; label: string; accent: string; wash: string; ico
 ];
 
 const STORAGE_KEY = 'nook.local.v1';
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const ROLLBACK_KEY = 'nook.rollback.v1';
+const DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const initialTasks: Task[] = [];
 
@@ -65,6 +84,53 @@ function formatTimer(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
   const seconds = (totalSeconds % 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}`;
+}
+
+function parseBackup(value: unknown): NookSnapshot {
+  if (!value || typeof value !== 'object') throw new Error('Invalid backup');
+  const saved = value as Partial<NookSnapshot>;
+  const validTasks = Array.isArray(saved.tasks) && saved.tasks.every((task) => (
+    task && typeof task === 'object'
+    && typeof task.id === 'string'
+    && typeof task.title === 'string'
+    && typeof task.category === 'string'
+    && typeof task.minutes === 'number'
+    && typeof task.done === 'boolean'
+  ));
+  const validHabits = Array.isArray(saved.habits) && saved.habits.every((habit) => (
+    habit && typeof habit === 'object'
+    && typeof habit.id === 'string'
+    && typeof habit.label === 'string'
+    && typeof habit.mark === 'string'
+    && typeof habit.count === 'number'
+    && typeof habit.checkedToday === 'boolean'
+  ));
+  if (!validTasks || !validHabits || typeof saved.note !== 'string') throw new Error('Invalid backup');
+
+  const tasks = saved.tasks as Task[];
+  const selectedTaskId = typeof saved.selectedTaskId === 'string' && tasks.some((task) => task.id === saved.selectedTaskId)
+    ? saved.selectedTaskId
+    : tasks[0]?.id ?? '';
+  const timerPreset = typeof saved.timerPreset === 'number' && saved.timerPreset > 0 ? saved.timerPreset : 25;
+  const timerSeconds = typeof saved.timerSeconds === 'number' && saved.timerSeconds >= 0
+    ? saved.timerSeconds
+    : timerPreset * 60;
+  const weekMinutes = Array.isArray(saved.weekMinutes)
+    && saved.weekMinutes.length === 7
+    && saved.weekMinutes.every((minutes) => typeof minutes === 'number' && minutes >= 0)
+    ? saved.weekMinutes
+    : [0, 0, 0, 0, 0, 0, 0];
+
+  return {
+    tasks,
+    habits: saved.habits as Habit[],
+    note: saved.note,
+    selectedTaskId,
+    timerPreset,
+    timerSeconds,
+    weekMinutes,
+    dark: typeof saved.dark === 'boolean' ? saved.dark : false,
+  };
 }
 
 export default function Home() {
@@ -86,12 +152,23 @@ export default function Home() {
   const [dateLabel, setDateLabel] = useState('Monday, 24 August');
   const [greeting, setGreeting] = useState('Good morning');
   const [toast, setToast] = useState('');
+  const [undoState, setUndoState] = useState<UndoState | null>(null);
+  const [pendingImport, setPendingImport] = useState<NookSnapshot | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('loading');
+  const [shortcutLabel, setShortcutLabel] = useState('Ctrl K');
   const [activeTab, setActiveTab] = useState<AppTab>('home');
   const [previewTab, setPreviewTab] = useState<AppTab | null>(null);
   const [lensPosition, setLensPosition] = useState<number | null>(null);
   const [navDragging, setNavDragging] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const importButtonRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLElement>(null);
+  const taskDialogRef = useRef<HTMLFormElement>(null);
+  const paletteDialogRef = useRef<HTMLDivElement>(null);
+  const importDialogRef = useRef<HTMLDivElement>(null);
+  const dialogReturnFocusRef = useRef<HTMLElement | null>(null);
+  const storageErrorShownRef = useRef(false);
+  const lastSavedNoteRef = useRef(note);
   const dragStartRef = useRef<{ pointerId: number; x: number } | null>(null);
   const suppressClickRef = useRef(false);
 
@@ -107,37 +184,70 @@ export default function Home() {
   const visualTab = previewTab ?? activeTab;
   const visualTabIndex = TABS.findIndex((tab) => tab.id === visualTab);
   const visualTabConfig = TABS[visualTabIndex];
+  const dialogOpen = taskModalOpen || paletteOpen || pendingImport !== null;
+  const pendingImportWords = pendingImport?.note.trim()
+    ? pendingImport.note.trim().split(/\s+/).length
+    : 0;
   const appStyle = {
     '--active-tab-index': lensPosition ?? visualTabIndex,
     '--tab-accent': visualTabConfig.accent,
     '--tab-wash': visualTabConfig.wash,
   } as CSSProperties;
 
+  const notify = useCallback((message: string, undo: UndoState | null = null) => {
+    setToast(message);
+    setUndoState(undo);
+  }, []);
+
+  const applySnapshot = useCallback((snapshot: NookSnapshot) => {
+    setTasks(snapshot.tasks);
+    setHabits(snapshot.habits);
+    setNote(snapshot.note);
+    setSelectedTaskId(snapshot.selectedTaskId);
+    setTimerPreset(snapshot.timerPreset);
+    setTimerSeconds(snapshot.timerSeconds);
+    setTimerRunning(false);
+    setWeekMinutes(snapshot.weekMinutes);
+    setDark(snapshot.dark);
+  }, []);
+
+  const currentSnapshot = useCallback((): NookSnapshot => ({
+    tasks,
+    habits,
+    note,
+    selectedTaskId,
+    timerPreset,
+    timerSeconds,
+    weekMinutes,
+    dark,
+  }), [dark, habits, note, selectedTaskId, tasks, timerPreset, timerSeconds, weekMinutes]);
+
+  const closeActiveDialog = useCallback(() => {
+    setTaskModalOpen(false);
+    setPaletteOpen(false);
+    setPendingImport(null);
+  }, []);
+
   useEffect(() => {
     const initialize = window.setTimeout(() => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const saved = JSON.parse(raw);
-          if (Array.isArray(saved.tasks)) setTasks(saved.tasks);
-          if (Array.isArray(saved.habits)) setHabits(saved.habits);
-          if (typeof saved.note === 'string') setNote(saved.note);
-          if (typeof saved.selectedTaskId === 'string') setSelectedTaskId(saved.selectedTaskId);
-          if (typeof saved.timerPreset === 'number') setTimerPreset(saved.timerPreset);
-          if (typeof saved.timerSeconds === 'number') setTimerSeconds(saved.timerSeconds);
-          if (Array.isArray(saved.weekMinutes) && saved.weekMinutes.length === 7) setWeekMinutes(saved.weekMinutes);
-          if (typeof saved.dark === 'boolean') setDark(saved.dark);
+          applySnapshot(parseBackup(JSON.parse(raw)));
         } else {
           setDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
         }
+        setSaveStatus('saved');
       } catch {
-        setToast('Saved data could not be read. Fresh defaults are loaded.');
+        setSaveStatus('error');
+        notify('Saved data could not be read. Fresh defaults are loaded.');
       }
 
       const now = new Date();
       setDateLabel(new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(now));
       const hour = now.getHours();
       setGreeting(hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
+      setShortcutLabel(/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K');
       setHydrated(true);
     }, 0);
 
@@ -146,15 +256,31 @@ export default function Home() {
     }
 
     return () => window.clearTimeout(initialize);
-  }, []);
+  }, [applySnapshot, notify]);
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ tasks, habits, note, selectedTaskId, timerPreset, timerSeconds, weekMinutes, dark }),
-    );
-  }, [dark, habits, hydrated, note, selectedTaskId, tasks, timerPreset, timerSeconds, weekMinutes]);
+    const noteChanged = lastSavedNoteRef.current !== note;
+    const markSaving = noteChanged ? window.setTimeout(() => setSaveStatus('saving'), 0) : null;
+    const save = window.setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(currentSnapshot()));
+        lastSavedNoteRef.current = note;
+        setSaveStatus('saved');
+        storageErrorShownRef.current = false;
+      } catch {
+        setSaveStatus('error');
+        if (!storageErrorShownRef.current) {
+          storageErrorShownRef.current = true;
+          notify('Could not save on this device. Keep this tab open and export a backup.');
+        }
+      }
+    }, 240);
+    return () => {
+      if (markSaving !== null) window.clearTimeout(markSaving);
+      window.clearTimeout(save);
+    };
+  }, [currentSnapshot, hydrated, note, notify]);
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -173,39 +299,97 @@ export default function Home() {
         next[dayIndex] += timerPreset;
         return next;
       });
-      setToast('Focus session complete. Beautiful work.');
+      notify('Focus session complete. Beautiful work.');
     }, 0);
     return () => window.clearTimeout(finish);
-  }, [timerPreset, timerRunning, timerSeconds]);
+  }, [notify, timerPreset, timerRunning, timerSeconds]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setPaletteOpen((open) => !open);
-      }
-      if (event.key === 'Escape') {
-        setPaletteOpen(false);
-        setTaskModalOpen(false);
+        if (!taskModalOpen && !pendingImport) setPaletteOpen((open) => !open);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [pendingImport, taskModalOpen]);
 
   useEffect(() => {
     if (!toast) return;
-    const timeout = window.setTimeout(() => setToast(''), 3000);
+    const timeout = window.setTimeout(() => {
+      setToast('');
+      setUndoState(null);
+    }, undoState ? 8000 : 4200);
     return () => window.clearTimeout(timeout);
-  }, [toast]);
+  }, [toast, undoState]);
 
   useEffect(() => {
-    if (!paletteOpen) return;
-    const focusCommand = window.requestAnimationFrame(() => {
-      document.querySelector<HTMLButtonElement>('[data-command-first="true"]')?.focus();
+    if (dialogOpen) {
+      if (!dialogReturnFocusRef.current) {
+        const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        dialogReturnFocusRef.current = activeElement === importRef.current ? importButtonRef.current : activeElement;
+      }
+      return;
+    }
+    const returnFocus = dialogReturnFocusRef.current;
+    dialogReturnFocusRef.current = null;
+    if (!returnFocus) return;
+    const restoreFocus = window.requestAnimationFrame(() => returnFocus.focus());
+    return () => window.cancelAnimationFrame(restoreFocus);
+  }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const dialog = taskModalOpen
+      ? taskDialogRef.current
+      : pendingImport
+        ? importDialogRef.current
+        : paletteDialogRef.current;
+    if (!dialog) return;
+
+    const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter((element) => (
+      !element.hidden
+      && element.getAttribute('aria-hidden') !== 'true'
+      && (element.offsetWidth > 0 || element.offsetHeight > 0 || element.getClientRects().length > 0)
+    ));
+    const focusDialog = window.requestAnimationFrame(() => {
+      const initial = dialog.querySelector<HTMLElement>('[data-dialog-initial="true"]');
+      const first = getFocusable()[0];
+      (initial ?? first ?? dialog).focus();
     });
-    return () => window.cancelAnimationFrame(focusCommand);
-  }, [paletteOpen]);
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeActiveDialog();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', trapFocus);
+    return () => {
+      window.cancelAnimationFrame(focusDialog);
+      document.removeEventListener('keydown', trapFocus);
+    };
+  }, [closeActiveDialog, dialogOpen, paletteOpen, pendingImport, taskModalOpen]);
 
   useEffect(() => {
     const syncFromHash = () => {
@@ -227,7 +411,7 @@ export default function Home() {
     setSelectedTaskId(task.id);
     setTaskTitle('');
     setTaskModalOpen(false);
-    setToast('Task added to today.');
+    notify('Task added to today.');
   }
 
   function toggleTask(id: string) {
@@ -235,8 +419,30 @@ export default function Home() {
   }
 
   function deleteTask(id: string) {
-    setTasks((current) => current.filter((task) => task.id !== id));
-    setToast('Task removed.');
+    const index = tasks.findIndex((task) => task.id === id);
+    const task = tasks[index];
+    if (!task) return;
+    const nextTasks = tasks.filter((item) => item.id !== id);
+    setTasks(nextTasks);
+    if (selectedTaskId === id) setSelectedTaskId(nextTasks.find((item) => !item.done)?.id ?? nextTasks[0]?.id ?? '');
+    notify('Task removed. Undo is available for a moment.', { kind: 'delete', task, index, selectedTaskId });
+  }
+
+  function undoLastAction() {
+    if (!undoState) return;
+    if (undoState.kind === 'delete') {
+      setTasks((current) => {
+        if (current.some((task) => task.id === undoState.task.id)) return current;
+        const next = [...current];
+        next.splice(Math.min(undoState.index, next.length), 0, undoState.task);
+        return next;
+      });
+      setSelectedTaskId(undoState.selectedTaskId);
+      notify('Task restored.');
+      return;
+    }
+    applySnapshot(undoState.snapshot);
+    notify('Previous data restored.');
   }
 
   function toggleHabit(id: string) {
@@ -351,31 +557,35 @@ export default function Home() {
     link.download = `nook-backup-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    setToast('Private backup exported.');
+    notify('Private backup exported.');
   }
 
   async function importData(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const saved = JSON.parse(await file.text());
-      if (!Array.isArray(saved.tasks) || !Array.isArray(saved.habits) || typeof saved.note !== 'string') {
-        throw new Error('Invalid backup');
-      }
-      setTasks(saved.tasks);
-      setHabits(saved.habits);
-      setNote(saved.note);
-      if (typeof saved.selectedTaskId === 'string') setSelectedTaskId(saved.selectedTaskId);
-      if (typeof saved.timerPreset === 'number') setTimerPreset(saved.timerPreset);
-      if (typeof saved.timerSeconds === 'number') setTimerSeconds(saved.timerSeconds);
-      if (Array.isArray(saved.weekMinutes) && saved.weekMinutes.length === 7) setWeekMinutes(saved.weekMinutes);
-      if (typeof saved.dark === 'boolean') setDark(saved.dark);
-      setToast('Backup restored on this device.');
+      setPendingImport(parseBackup(JSON.parse(await file.text())));
     } catch {
-      setToast('That file is not a valid Nook backup.');
+      notify('That file is not a valid Nook backup. Choose a Nook JSON export.');
     } finally {
       event.target.value = '';
     }
+  }
+
+  function confirmImport() {
+    if (!pendingImport) return;
+    const previous = currentSnapshot();
+    try {
+      localStorage.setItem(ROLLBACK_KEY, JSON.stringify(previous));
+    } catch {
+      setSaveStatus('error');
+      notify('Import stopped because a recovery copy could not be saved. Export a backup and try again.');
+      setPendingImport(null);
+      return;
+    }
+    applySnapshot(pendingImport);
+    setPendingImport(null);
+    notify('Backup restored. Your previous data can still be recovered.', { kind: 'import', snapshot: previous });
   }
 
   const commands = [
@@ -388,10 +598,14 @@ export default function Home() {
 
   return (
     <main
-      className={'nook-app ' + (dark ? 'is-dark ' : '') + (taskModalOpen || paletteOpen ? 'has-dialog ' : '') + 'min-h-screen p-3 text-[var(--ink)] sm:p-5'}
+      className={'nook-app ' + (dark ? 'is-dark ' : '') + (dialogOpen ? 'has-dialog ' : '') + 'min-h-screen p-3 text-[var(--ink)] sm:p-5'}
       style={appStyle}
     >
-      <div className="nook-shell relative z-[1] mx-auto flex min-h-[calc(100vh-24px)] max-w-[1380px] flex-col overflow-hidden rounded-[30px] border border-[var(--line)] bg-[var(--shell)] shadow-[0_24px_80px_rgba(37,39,32,0.08)] sm:min-h-[calc(100vh-40px)]">
+      <div
+        className="nook-shell relative z-[1] mx-auto flex min-h-[calc(100vh-24px)] max-w-[1380px] flex-col overflow-hidden rounded-[30px] border border-[var(--line)] bg-[var(--shell)] shadow-[0_24px_80px_rgba(37,39,32,0.08)] sm:min-h-[calc(100vh-40px)]"
+        inert={dialogOpen ? true : undefined}
+        aria-hidden={dialogOpen ? true : undefined}
+      >
         <header className="nook-header flex items-center gap-2 border-b border-[var(--line)] px-3 py-3 sm:gap-3 sm:px-7 sm:py-4">
           <button className="flex min-h-11 shrink-0 items-center gap-3 text-left" onClick={() => activateTab('home')} aria-label="Open Nook home">
             <Image
@@ -417,9 +631,9 @@ export default function Home() {
               className="grid h-11 w-11 place-items-center rounded-full border border-[var(--line)] bg-[var(--card)] text-[var(--muted)] sm:flex sm:w-auto sm:gap-2 sm:px-3"
               aria-label="Open quick actions"
             >
-              <MagnifyingGlass size={20} weight="bold" aria-hidden="true" />
-              <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden rounded-md bg-[var(--soft)] px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
+              <CommandIcon size={20} weight="bold" aria-hidden="true" />
+              <span className="hidden sm:inline">Quick actions</span>
+              <kbd className="hidden rounded-md bg-[var(--soft)] px-1.5 py-0.5 text-xs sm:inline">{shortcutLabel}</kbd>
             </button>
             <button
               onClick={() => setDark((value) => !value)}
@@ -518,11 +732,11 @@ export default function Home() {
 
               {activeTab === 'today' && (
                 <div>
-                  <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                  <div className="view-intro mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div>
                       <p className="eyebrow">Today</p>
-                      <h1 className="mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Three things, no noise.</h1>
-                      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Choose what matters now. Everything stays on this device.</p>
+                      <h1 className="view-title mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Three things, no noise.</h1>
+                      <p className="view-description mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Choose what matters now. Everything stays on this device.</p>
                     </div>
                     <button onClick={() => setTaskModalOpen(true)} className="min-h-11 w-full rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--reverse)] sm:w-fit">New task</button>
                   </div>
@@ -548,7 +762,7 @@ export default function Home() {
                             <h2 className={'truncate text-base font-medium ' + (task.done ? 'text-[var(--muted)] line-through' : '')}>{task.title}</h2>
                             <p className="mt-0.5 text-xs text-[var(--muted)]">{task.category} · {task.minutes} min</p>
                           </button>
-                          {activeTask?.id === task.id && <span className="hidden rounded-full bg-[#dfff64] px-2.5 py-1 text-[10px] font-semibold text-[#20231f] sm:block">NEXT</span>}
+                          {activeTask?.id === task.id && <span className="hidden rounded-full bg-[#dfff64] px-2.5 py-1 text-xs font-semibold text-[#20231f] sm:block">NEXT</span>}
                           <button onClick={() => deleteTask(task.id)} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[var(--muted)] opacity-70 transition hover:bg-[var(--soft)] hover:opacity-100" aria-label={'Delete ' + task.title}><X size={17} weight="bold" aria-hidden="true" /></button>
                         </article>
                       )) : (
@@ -565,10 +779,10 @@ export default function Home() {
 
               {activeTab === 'habits' && (
                 <div>
-                  <div className="mb-6">
+                  <div className="view-intro mb-6">
                     <p className="eyebrow">Habits</p>
-                    <h1 className="mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Keep the rhythm.</h1>
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Small rituals, checked once today. No streak pressure.</p>
+                    <h1 className="view-title mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Keep the rhythm.</h1>
+                    <p className="view-description mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Small rituals, checked once today. No streak pressure.</p>
                   </div>
 
                   <section className="habit-world relative overflow-hidden rounded-[28px] bg-[#e7d9ff] p-5 text-[#20231f] sm:p-8">
@@ -604,11 +818,11 @@ export default function Home() {
 
               {activeTab === 'focus' && (
                 <div>
-                  <div className="mb-6 flex items-end justify-between gap-4">
+                  <div className="view-intro mb-6 flex items-end justify-between gap-4">
                     <div>
                       <p className="eyebrow">Focus</p>
-                      <h1 className="mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">One session at a time.</h1>
-                      <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Deep Focus is the action. Focus Rhythm shows what it adds up to.</p>
+                      <h1 className="view-title mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">One session at a time.</h1>
+                      <p className="view-description mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Deep Focus is the action. Focus Rhythm shows what it adds up to.</p>
                     </div>
                     {timerRunning && <span className="hidden rounded-full bg-[#dfff64] px-3 py-1 text-xs font-semibold text-[#20231f] sm:block">SESSION RUNNING</span>}
                   </div>
@@ -640,6 +854,9 @@ export default function Home() {
                           <button onClick={() => setTimerRunning((running) => !running)} className="min-h-11 flex-1 rounded-full bg-[#dfff64] px-6 py-3 text-sm font-semibold text-[#20231f] sm:flex-none">{timerRunning ? 'Pause' : 'Start focus'}</button>
                           <button onClick={resetTimer} className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white/75" aria-label="Reset timer"><ArrowCounterClockwise size={20} weight="bold" aria-hidden="true" /></button>
                         </div>
+                        <p className="sr-only" role="status" aria-live="polite">
+                          Focus timer {timerRunning ? 'running' : 'paused'}.
+                        </p>
                       </div>
                     </section>
 
@@ -651,17 +868,22 @@ export default function Home() {
                         </div>
                         <p className="text-sm font-medium text-[var(--muted)]">{focusedTotal ? focusedTotal + ' min' : 'No sessions yet'}</p>
                       </div>
-                      <div className="mt-10 flex h-[210px] items-end gap-3" aria-label="Weekly focus minutes chart">
+                      <div className="mt-10 flex h-[210px] items-end gap-3" aria-hidden="true">
                         {weekMinutes.map((minutes, index) => (
                           <div key={index} className="flex flex-1 flex-col items-center gap-3" title={minutes + ' minutes'}>
                             <span
                               className={'w-full max-w-11 rounded-t-xl ' + (index === (new Date().getDay() + 6) % 7 ? 'bg-[var(--ink)]' : 'bg-[var(--bar)]')}
                               style={{ height: Math.max(18, (minutes / chartMax) * 165) + 'px' }}
                             />
-                            <span className="text-[10px] text-[var(--muted)]">{DAY_LABELS[index]}</span>
+                            <span className="text-xs text-[var(--muted)]">{DAY_LABELS[index]}</span>
                           </div>
                         ))}
                       </div>
+                      <ul className="sr-only" aria-label="Weekly focus minutes">
+                        {weekMinutes.map((minutes, index) => (
+                          <li key={DAY_NAMES[index]}>{DAY_NAMES[index]}: {minutes} minutes</li>
+                        ))}
+                      </ul>
                       <p className="mt-6 border-t border-[var(--line)] pt-5 text-sm leading-6 text-[var(--muted)]">Completed sessions appear here automatically. Nothing is sent away from this device.</p>
                     </section>
                   </div>
@@ -670,16 +892,16 @@ export default function Home() {
 
               {activeTab === 'notes' && (
                 <div>
-                  <div className="mb-6">
+                  <div className="view-intro mb-6">
                     <p className="eyebrow">Daily note</p>
-                    <h1 className="mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Leave a breadcrumb.</h1>
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">A plain Markdown page for what should survive the day.</p>
+                    <h1 className="view-title mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Leave a breadcrumb.</h1>
+                    <p className="view-description mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">A plain Markdown page for what should survive the day.</p>
                   </div>
 
                   <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
                     <section className="rounded-[28px] border border-[var(--line)] bg-[var(--card)] p-5 sm:p-7">
                       <div className="flex items-center justify-between">
-                        <span className="rounded-full bg-[var(--soft)] px-3 py-1 font-mono text-[10px] text-[var(--muted)]">TODAY.md</span>
+                        <span className="rounded-full bg-[var(--soft)] px-3 py-1 font-mono text-xs text-[var(--muted)]">TODAY.md</span>
                         <span className="text-xs text-[var(--muted)]">{noteWords} words</span>
                       </div>
                       <textarea
@@ -689,7 +911,16 @@ export default function Home() {
                         aria-label="Daily note in Markdown"
                         spellCheck
                       />
-                      <p className="mt-3 text-xs text-[var(--muted)]">Saved locally as you type</p>
+                      <p
+                        className={'mt-3 text-xs ' + (saveStatus === 'error' ? 'text-[var(--danger)]' : 'text-[var(--muted)]')}
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {saveStatus === 'loading' && 'Checking local storage…'}
+                        {saveStatus === 'saving' && 'Saving on this device…'}
+                        {saveStatus === 'saved' && 'Saved on this device'}
+                        {saveStatus === 'error' && 'Could not save. Keep this tab open and export a backup.'}
+                      </p>
                     </section>
 
                     <aside className="h-fit rounded-[26px] bg-[#20231f] p-6 text-white">
@@ -698,7 +929,7 @@ export default function Home() {
                       <p className="mt-3 text-sm leading-6 text-white/62">No account, cloud, analytics, or tracking. Export a JSON backup whenever you want one.</p>
                       <div className="mt-7 grid gap-2">
                         <button onClick={exportData} className="min-h-11 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#20231f]">Export backup</button>
-                        <button onClick={() => importRef.current?.click()} className="min-h-11 rounded-full bg-white/10 px-4 py-2.5 text-sm text-white/80">Import backup</button>
+                        <button ref={importButtonRef} onClick={() => importRef.current?.click()} className="min-h-11 rounded-full bg-white/10 px-4 py-2.5 text-sm text-white/80" aria-haspopup="dialog">Import backup</button>
                       </div>
                     </aside>
                   </div>
@@ -706,11 +937,11 @@ export default function Home() {
               )}
             </section>
 
-            <footer className="flex items-center justify-between gap-4 py-5 text-[10px] text-[var(--muted)] sm:py-6">
+            <footer className="flex items-center justify-between gap-4 py-5 text-xs text-[var(--muted)] sm:py-6">
               <p>No account. No cloud. No tracking.</p>
               <button onClick={() => setPaletteOpen(true)} className="min-h-11 shrink-0 px-2 text-xs hover:text-[var(--ink)]">
                 <span className="sm:hidden">Quick actions</span>
-                <span className="hidden sm:inline">Ctrl K · Commands</span>
+                <span className="hidden sm:inline">{shortcutLabel} · Quick actions</span>
               </button>
             </footer>
           </div>
@@ -721,6 +952,8 @@ export default function Home() {
         ref={navRef}
         className={'liquid-nav fixed z-40 grid grid-cols-5 ' + (navDragging ? 'is-dragging' : '')}
         aria-label="Nook sections"
+        aria-hidden={dialogOpen ? true : undefined}
+        inert={dialogOpen ? true : undefined}
         role="tablist"
         onPointerMove={handleNavPointerMove}
         onPointerDown={handleNavPointerDown}
@@ -785,7 +1018,7 @@ export default function Home() {
 
       {taskModalOpen && (
         <div className="modal-backdrop mobile-sheet-backdrop fixed inset-0 z-50 flex items-end justify-center sm:grid sm:place-items-center sm:p-4" onPointerDown={() => setTaskModalOpen(false)}>
-          <form onSubmit={addTask} onPointerDown={(event) => event.stopPropagation()} className="mobile-sheet w-full max-w-md rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] p-5 text-[var(--ink)] shadow-2xl sm:rounded-[24px] sm:p-6" role="dialog" aria-modal="true" aria-labelledby="new-task-title">
+          <form ref={taskDialogRef} onSubmit={addTask} onPointerDown={(event) => event.stopPropagation()} className="mobile-sheet w-full max-w-md rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] p-5 text-[var(--ink)] shadow-[0_24px_64px_rgba(14,16,13,0.18)] sm:rounded-[24px] sm:p-6" role="dialog" aria-modal="true" aria-labelledby="new-task-title" tabIndex={-1}>
             <span className="sheet-handle sm:hidden" aria-hidden="true" />
             <div className="flex items-center justify-between">
               <div>
@@ -795,7 +1028,7 @@ export default function Home() {
               <button type="button" onClick={() => setTaskModalOpen(false)} className="grid h-11 w-11 place-items-center rounded-full bg-[var(--soft)]" aria-label="Close new task"><X size={18} weight="bold" aria-hidden="true" /></button>
             </div>
             <label className="mt-6 block text-xs font-medium text-[var(--muted)]" htmlFor="task-title">Task</label>
-            <input id="task-title" autoFocus value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Write the next clear action" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-4 py-3 text-base outline-none focus:border-[var(--strong-line)] sm:text-sm" />
+            <input id="task-title" data-dialog-initial="true" value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Write the next clear action" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-4 py-3 text-base outline-none focus:border-[var(--strong-line)] sm:text-sm" />
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-xs font-medium text-[var(--muted)]">Category
                 <select value={taskCategory} onChange={(event) => setTaskCategory(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-3 py-3 text-base text-[var(--ink)] outline-none sm:text-sm">
@@ -813,14 +1046,54 @@ export default function Home() {
         </div>
       )}
 
+      {pendingImport && (
+        <div className="modal-backdrop mobile-sheet-backdrop fixed inset-0 z-50 flex items-end justify-center sm:grid sm:place-items-center sm:p-4" onPointerDown={() => setPendingImport(null)}>
+          <div
+            ref={importDialogRef}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="mobile-sheet w-full max-w-md rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] p-5 text-[var(--ink)] shadow-[0_24px_64px_rgba(14,16,13,0.18)] sm:rounded-[24px] sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-title"
+            aria-describedby="import-description"
+            tabIndex={-1}
+          >
+            <span className="sheet-handle sm:hidden" aria-hidden="true" />
+            <p className="eyebrow">Review backup</p>
+            <h2 id="import-title" className="mt-2 text-2xl font-semibold tracking-[-0.04em]">Replace data on this device?</h2>
+            <p id="import-description" className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              Nook will keep a recovery copy first. You can undo the import from the confirmation message.
+            </p>
+            <dl className="mt-5 grid grid-cols-3 gap-2 rounded-[18px] bg-[var(--soft)] p-4 text-center">
+              <div>
+                <dt className="text-xs text-[var(--muted)]">Tasks</dt>
+                <dd className="mt-1 font-mono text-xl">{pendingImport.tasks.length}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">Habits</dt>
+                <dd className="mt-1 font-mono text-xl">{pendingImport.habits.length}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--muted)]">Note words</dt>
+                <dd className="mt-1 font-mono text-xl">{pendingImportWords}</dd>
+              </div>
+            </dl>
+            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+              <button data-dialog-initial="true" type="button" onClick={() => setPendingImport(null)} className="min-h-12 rounded-full bg-[var(--soft)] px-5 py-3 text-sm font-semibold">Keep current data</button>
+              <button type="button" onClick={confirmImport} className="min-h-12 rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-[var(--reverse)]">Replace with backup</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {paletteOpen && (
         <div className="modal-backdrop mobile-sheet-backdrop fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:p-4 sm:pt-[12vh]" onPointerDown={() => setPaletteOpen(false)}>
-          <div onPointerDown={(event) => event.stopPropagation()} className="mobile-sheet h-fit w-full max-w-lg overflow-hidden rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] text-[var(--ink)] shadow-2xl sm:rounded-[22px]" role="dialog" aria-modal="true" aria-label="Quick actions">
+          <div ref={paletteDialogRef} onPointerDown={(event) => event.stopPropagation()} className="mobile-sheet h-fit w-full max-w-lg overflow-hidden rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] text-[var(--ink)] shadow-[0_24px_64px_rgba(14,16,13,0.18)] sm:rounded-[22px]" role="dialog" aria-modal="true" aria-label="Quick actions" tabIndex={-1}>
             <span className="sheet-handle sm:hidden" aria-hidden="true" />
             <div className="flex items-center gap-3 border-b border-[var(--line)] px-5 py-4">
-              <MagnifyingGlass size={20} weight="bold" className="text-[var(--muted)]" aria-hidden="true" />
+              <CommandIcon size={20} weight="bold" className="text-[var(--muted)]" aria-hidden="true" />
               <p className="text-sm font-medium">Quick actions</p>
-              <kbd className="ml-auto hidden rounded-md bg-[var(--soft)] px-2 py-1 text-[10px] text-[var(--muted)] sm:inline">ESC</kbd>
+              <kbd className="ml-auto hidden rounded-md bg-[var(--soft)] px-2 py-1 text-xs text-[var(--muted)] sm:inline">ESC</kbd>
               <button type="button" onClick={() => setPaletteOpen(false)} className="ml-auto grid h-11 w-11 place-items-center rounded-full bg-[var(--soft)] sm:hidden" aria-label="Close quick actions"><X size={18} weight="bold" aria-hidden="true" /></button>
             </div>
             <div className="p-2">
@@ -828,7 +1101,7 @@ export default function Home() {
                 const CommandIcon = command.icon;
                 return (
                   <button
-                    data-command-first={index === 0 ? 'true' : undefined}
+                    data-dialog-initial={index === 0 ? 'true' : undefined}
                     key={command.label}
                     onClick={() => { setPaletteOpen(false); command.action(); }}
                     className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition hover:bg-[var(--soft)]"
@@ -843,7 +1116,12 @@ export default function Home() {
         </div>
       )}
 
-      {toast && <div role="status" className="mobile-toast fixed bottom-28 right-5 z-[60] max-w-sm rounded-full bg-[#20231f] px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>}
+      {toast && (
+        <div role="status" aria-live="polite" className="mobile-toast fixed bottom-28 right-5 z-[60] flex max-w-md items-center justify-center gap-3 rounded-full bg-[#20231f] px-4 py-2.5 text-sm text-white shadow-[0_14px_36px_rgba(14,16,13,0.18)]">
+          <span>{toast}</span>
+          {undoState && <button type="button" onClick={undoLastAction} className="min-h-9 shrink-0 rounded-full bg-[#dfff64] px-3 py-1.5 text-xs font-semibold text-[#20231f]">Undo</button>}
+        </div>
+      )}
     </main>
   );
 }

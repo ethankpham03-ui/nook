@@ -58,6 +58,7 @@ body:has(.nook-app.is-dark) {
   --line: rgba(30, 33, 28, 0.08);
   --strong-line: rgba(30, 33, 28, 0.25);
   --bar: #d9ddd3;
+  --danger: #9f2f2d;
   position: relative;
   min-height: 100dvh;
   isolation: isolate;
@@ -91,6 +92,7 @@ body:has(.nook-app.is-dark) {
   --line: rgba(255, 255, 255, 0.08);
   --strong-line: rgba(255, 255, 255, 0.26);
   --bar: #3a4037;
+  --danger: #ffb4ab;
 }
 
 .nook-app.is-dark::before { opacity: 0.2; }
@@ -297,7 +299,7 @@ textarea:focus-visible {
 .dock-label {
   overflow: hidden;
   max-width: 100%;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
   text-overflow: ellipsis;
@@ -430,7 +432,18 @@ textarea:focus-visible {
   }
   .liquid-tab { height: 54px; }
   .dock-icon { width: 20px; height: 20px; }
-  .dock-label { font-size: 9px; }
+  .dock-label { font-size: 11px; }
+  .view-intro { margin-bottom: 1rem; }
+  .view-title {
+    margin-top: 0.375rem;
+    font-size: clamp(1.9rem, 9vw, 2.8rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+  }
+  .view-description {
+    margin-top: 0.5rem;
+    line-height: 1.45;
+  }
 }
 
 @media (max-width: 359px) {
@@ -458,9 +471,37 @@ textarea:focus-visible {
   }
 }
 
+@media (display-mode: standalone) and (pointer: coarse) {
+  .liquid-nav {
+    bottom: max(10px, calc(env(safe-area-inset-bottom) - 22px));
+  }
+  .mobile-toast {
+    bottom: calc(5.8rem + max(10px, calc(env(safe-area-inset-bottom) - 22px)));
+  }
+}
+
 @media (max-width: 767px) and (max-height: 520px) {
   .focus-card { min-height: 330px; }
-  .home-hero > div:last-child { min-height: 250px; }
+  .home-hero { padding: 1.25rem; }
+  .home-hero > div:last-child {
+    min-height: 230px;
+    gap: 1.5rem;
+  }
+  .home-hero h1 {
+    margin-top: 0.625rem;
+    font-size: clamp(2.25rem, 10vw, 4rem);
+    letter-spacing: -0.04em;
+  }
+}
+
+@media (min-width: 640px) and (max-height: 760px) {
+  .nook-scroll { padding-top: 1.25rem; }
+  .view-intro { margin-bottom: 1rem; }
+  .view-title {
+    margin-top: 0.375rem;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+  }
+  .view-description { margin-top: 0.5rem; }
 }
 
 @media (hover: none) {
