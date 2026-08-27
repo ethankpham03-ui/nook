@@ -1,4 +1,4 @@
-const CACHE = 'nook-shell-v8';
+const CACHE = 'nook-shell-v9';
 const OFFLINE_URL = '/';
 const APP_SHELL = [
   OFFLINE_URL,

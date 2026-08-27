@@ -144,6 +144,7 @@ export default function Home() {
   const [weekMinutes, setWeekMinutes] = useState([0, 0, 0, 0, 0, 0, 0]);
   const [dark, setDark] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [standalone, setStandalone] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
@@ -229,7 +230,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const appleNavigator = navigator as Navigator & { standalone?: boolean };
     const initialize = window.setTimeout(() => {
+      setStandalone(
+        window.matchMedia('(display-mode: standalone)').matches
+        || appleNavigator.standalone === true,
+      );
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -598,7 +604,7 @@ export default function Home() {
 
   return (
     <main
-      className={'nook-app ' + (dark ? 'is-dark ' : '') + (dialogOpen ? 'has-dialog ' : '') + 'min-h-screen p-3 text-[var(--ink)] sm:p-5'}
+      className={'nook-app ' + (dark ? 'is-dark ' : '') + (standalone ? 'is-standalone ' : '') + (dialogOpen ? 'has-dialog ' : '') + 'min-h-screen p-3 text-[var(--ink)] sm:p-5'}
       style={appStyle}
     >
       <div

@@ -473,12 +473,15 @@ textarea:focus-visible {
 
 @media (display-mode: standalone) and (pointer: coarse) {
   .liquid-nav {
-    bottom: max(10px, calc(env(safe-area-inset-bottom) - 22px));
+    bottom: 8px;
   }
   .mobile-toast {
-    bottom: calc(5.8rem + max(10px, calc(env(safe-area-inset-bottom) - 22px)));
+    bottom: calc(5.8rem + 8px);
   }
 }
+
+.nook-app.is-standalone .liquid-nav { bottom: 8px; }
+.nook-app.is-standalone .mobile-toast { bottom: calc(5.8rem + 8px); }
 
 @media (max-width: 767px) and (max-height: 520px) {
   .focus-card { min-height: 330px; }

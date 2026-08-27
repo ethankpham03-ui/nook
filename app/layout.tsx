@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Nook',
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'black',
   },
   robots: {
     index: true,
