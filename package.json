@@ -19,9 +19,10 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
+    "test": "node --experimental-strip-types --test app/lib/nook-state.test.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit",
-    "check": "npm run lint && npm run typecheck && npm run build",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "start:vinext": "wrangler dev --config dist/server/wrangler.json",
     "deploy:vinext": "vinext-cloudflare deploy --config dist/server/wrangler.json"
   },

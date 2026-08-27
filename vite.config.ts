@@ -8,7 +8,6 @@ const shouldPollForChanges = process.env.CHOKIDAR_USEPOLLING === 'true';
 
 const localBindingConfig = {
   main: 'vinext/server/app-router-entry',
-  compatibility_flags: ['nodejs_compat'],
 };
 
 export default defineConfig(() => {
@@ -26,7 +25,6 @@ export default defineConfig(() => {
     plugins: [
       vinext({
         cache: { cdn: cdnAdapter() },
-        prerender: { routes: '*' },
       }),
       cloudflare({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },

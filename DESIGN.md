@@ -10,6 +10,7 @@ colors:
   ink: "#1d211c"
   charcoal: "#20231f"
   muted: "#687067"
+  subtle-text: "#596056"
   line: "rgba(30, 33, 28, 0.08)"
   accent: "#dfff64"
   accent-ink: "#20231f"
@@ -133,8 +134,13 @@ accents.
 - **Warm Canvas:** frames the product.
 - **Paper Shell:** holds the daily workspace.
 - **Clear Card:** carries tasks and notes.
-- **Accessible Olive Gray:** supports secondary copy without returning to the
-  lower-contrast gray of the earliest prototype.
+- **Accessible Olive Gray:** supports general secondary copy.
+- **Contrast Olive:** carries placeholders and inactive navigation labels at
+  full opacity; its semantic dark-theme counterpart becomes a light olive.
+
+**The Quiet Legibility Rule.** Quiet text must remain text, not become
+transparency. Placeholders and inactive navigation labels use the semantic
+subtle-text role at full opacity in both themes.
 
 **The Two-Color Spark Rule.** Lime is small, bright, and action-oriented;
 lavender is broad, soft, and atmospheric. Preserve that difference in dosage.
@@ -161,6 +167,11 @@ full lavender ritual; Focus combines Deep Focus with Focus Rhythm; Notes owns
 the daily Markdown surface and local backup. The fixed bottom dock keeps Home
 in the middle, with Today/Habits to its left and Focus/Notes to its right.
 Mobile preserves the same order and reserves safe-area clearance for the dock.
+
+**The Home First-Viewport Rule.** At phone widths, compress the factual Day Arc
+to a two-by-two summary so the complete next quiet move and its action remain
+visible above the dock at the 390×844 reference viewport. Supporting Day Arc
+description may recede; its current states and labels may not.
 
 ## Elevation & Depth
 
@@ -197,8 +208,9 @@ every breakpoint, including while it is dragged between destinations.
 ### Floating Navigation
 
 - Five equal targets ordered Today, Habits, Home, Focus, Notes.
-- A circular liquid lens slides continuously on hover or drag, then settles on
-  the selected tab in about 360ms.
+- A circular liquid lens previews the nearest target continuously on hover or
+  a pointer-captured drag, commits that destination on release, then settles in
+  about 360ms. Click remains direct selection.
 - Labels remain visible; the selected Focus tab may show a live timer dot.
 - Arrow keys move between tabs, Home/End jump to the ends, and reduced-motion,
   reduced-transparency, and forced-color modes receive explicit fallbacks.
