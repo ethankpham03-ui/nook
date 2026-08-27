@@ -1,0 +1,56 @@
+{
+  "name": "nook-local-first",
+  "version": "0.1.0",
+  "description": "A calm, local-first productivity app for daily planning, habits, deep-focus sessions, and private notes.",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "local-first",
+    "productivity",
+    "focus-timer",
+    "habit-tracker",
+    "daily-notes",
+    "pwa"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vinext dev",
+    "build": "vinext build",
+    "start": "vinext start",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
+    "next": "16.2.11",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.51.1",
+    "@cloudflare/workers-types": "5.20260801.1",
+    "@openai/sites-vite-plugin": "^0.1.0 || ^0.2.0",
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.34",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.11",
+    "react-server-dom-webpack": "19.2.8",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3",
+    "vinext": "1.0.0-beta.8",
+    "vite": "8.0.16",
+    "wrangler": "4.120.0"
+  },
+  "overrides": {
+    "postcss": "8.5.26",
+    "sharp": "0.35.2"
+  },
+  "type": "module"
+}
