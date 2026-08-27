@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
   <title id="title">Nook</title>
   <rect width="512" height="512" fill="#20231f"/>
-  <path d="M92 416V96h76l176 188V96h76v320h-76L168 228v188z" fill="#dfff64"/>
+  <path d="M172 334V178h38l93 100V178h38v156h-38l-93-100v100z" fill="#dfff64"/>
 </svg>
