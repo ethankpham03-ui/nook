@@ -15,6 +15,7 @@ import { Repeat } from '@phosphor-icons/react/Repeat';
 import { Sun } from '@phosphor-icons/react/Sun';
 import { Timer } from '@phosphor-icons/react/Timer';
 import { X } from '@phosphor-icons/react/X';
+import Image from 'next/image';
 import type { ChangeEvent, CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -393,7 +394,14 @@ export default function Home() {
       <div className="nook-shell relative z-[1] mx-auto flex min-h-[calc(100vh-24px)] max-w-[1380px] flex-col overflow-hidden rounded-[30px] border border-[var(--line)] bg-[var(--shell)] shadow-[0_24px_80px_rgba(37,39,32,0.08)] sm:min-h-[calc(100vh-40px)]">
         <header className="nook-header flex items-center gap-2 border-b border-[var(--line)] px-3 py-3 sm:gap-3 sm:px-7 sm:py-4">
           <button className="flex min-h-11 shrink-0 items-center gap-3 text-left" onClick={() => activateTab('home')} aria-label="Open Nook home">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#20231f] text-sm font-black text-[#dfff64] sm:h-10 sm:w-10">N</span>
+            <Image
+              src="/icons/nook-mark.svg"
+              alt=""
+              width={44}
+              height={44}
+              priority
+              className="h-11 w-11 shrink-0 sm:h-10 sm:w-10"
+            />
             <span className="hidden text-lg font-semibold tracking-[-0.04em] sm:block">nook</span>
           </button>
 

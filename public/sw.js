@@ -1,8 +1,9 @@
-const CACHE = 'nook-shell-v3';
+const CACHE = 'nook-shell-v4';
 const OFFLINE_URL = '/';
 const APP_SHELL = [
   OFFLINE_URL,
   '/manifest.webmanifest',
+  '/icons/nook-mark.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-512.png',
