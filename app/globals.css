@@ -473,7 +473,7 @@ textarea:focus-visible {
 
 @media (display-mode: standalone) and (pointer: coarse) {
   .nook-app {
-    --standalone-dock-bottom: max(11px, calc(env(safe-area-inset-bottom, 0px) - 19px));
+    --standalone-dock-bottom: max(9px, calc(env(safe-area-inset-bottom, 0px) - 21px));
   }
   .liquid-nav {
     bottom: var(--standalone-dock-bottom);
@@ -484,7 +484,7 @@ textarea:focus-visible {
 }
 
 .nook-app.is-standalone {
-  --standalone-dock-bottom: max(11px, calc(env(safe-area-inset-bottom, 0px) - 19px));
+  --standalone-dock-bottom: max(9px, calc(env(safe-area-inset-bottom, 0px) - 21px));
 }
 .nook-app.is-standalone .liquid-nav { bottom: var(--standalone-dock-bottom); }
 .nook-app.is-standalone .mobile-toast { bottom: calc(5.8rem + var(--standalone-dock-bottom)); }
