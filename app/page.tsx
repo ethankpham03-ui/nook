@@ -719,7 +719,7 @@ export default function Home() {
 
       <nav
         ref={navRef}
-        className={'liquid-nav fixed left-1/2 z-40 grid grid-cols-5 ' + (navDragging ? 'is-dragging' : '')}
+        className={'liquid-nav fixed z-40 grid grid-cols-5 ' + (navDragging ? 'is-dragging' : '')}
         aria-label="Nook sections"
         role="tablist"
         onPointerMove={handleNavPointerMove}

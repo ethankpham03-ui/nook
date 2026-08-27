@@ -41,6 +41,11 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+html:has(.nook-app.is-dark),
+body:has(.nook-app.is-dark) {
+  background: #10120f;
+}
+
 .nook-app {
   --canvas: #f3f0e9;
   --shell: #faf9f5;
@@ -193,7 +198,9 @@ textarea:focus-visible {
 .liquid-nav {
   --dock-padding: 7px;
   bottom: max(18px, env(safe-area-inset-bottom));
-  width: min(calc(100vw - 24px), 430px);
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  width: auto;
   padding: var(--dock-padding);
   border: 1px solid rgba(255,255,255,0.66);
   border-radius: 999px;
@@ -205,7 +212,6 @@ textarea:focus-visible {
   backdrop-filter: blur(16px) saturate(165%);
   isolation: isolate;
   touch-action: pan-y;
-  transform: translateX(-50%);
   user-select: none;
   -webkit-backdrop-filter: blur(16px) saturate(165%);
 }
@@ -284,7 +290,7 @@ textarea:focus-visible {
 
 .liquid-tab:hover,
 .liquid-tab:focus-visible,
-.liquid-tab.is-active { color: var(--ink); }
+.liquid-tab.is-active { color: #20231f; }
 .liquid-tab.is-active { transform: translateY(-2px); }
 .liquid-tab.is-home .dock-label { font-weight: 700; }
 
@@ -396,8 +402,12 @@ textarea:focus-visible {
   }
   .nook-header {
     padding-top: max(12px, calc(env(safe-area-inset-top) + 8px));
+    padding-right: max(12px, calc(env(safe-area-inset-right) + 12px));
+    padding-left: max(12px, calc(env(safe-area-inset-left) + 12px));
   }
   .nook-scroll {
+    padding-right: max(16px, calc(env(safe-area-inset-right) + 16px));
+    padding-left: max(16px, calc(env(safe-area-inset-left) + 16px));
     scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
   }
   .mobile-sheet {
@@ -406,15 +416,17 @@ textarea:focus-visible {
   .mobile-sheet-backdrop { padding-top: env(safe-area-inset-top); }
   .note-editor { min-height: min(52dvh, 390px); }
   .mobile-toast {
-    right: 12px;
+    right: max(12px, calc(env(safe-area-inset-right) + 12px));
     bottom: calc(5.8rem + env(safe-area-inset-bottom));
-    left: 12px;
+    left: max(12px, calc(env(safe-area-inset-left) + 12px));
     max-width: none;
     text-align: center;
   }
   .liquid-nav {
     --dock-padding: 6px;
     bottom: max(12px, env(safe-area-inset-bottom));
+    right: max(12px, calc(env(safe-area-inset-right) + 6px));
+    left: max(12px, calc(env(safe-area-inset-left) + 6px));
   }
   .liquid-tab { height: 54px; }
   .dock-icon { width: 20px; height: 20px; }
@@ -426,6 +438,24 @@ textarea:focus-visible {
   .nook-header > div:last-child { gap: 4px; }
   .home-actions { flex-direction: column; }
   .home-actions > button { width: 100%; }
+}
+
+@media (min-width: 455px) {
+  .liquid-nav {
+    right: auto;
+    left: 50%;
+    width: 430px;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 767px) and (orientation: landscape) {
+  .nook-shell > .nook-scroll {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+  .liquid-nav {
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
 }
 
 @media (max-width: 767px) and (max-height: 520px) {
@@ -459,6 +489,8 @@ textarea:focus-visible {
     box-shadow: none;
     backdrop-filter: none;
   }
+  .liquid-tab:hover,
+  .liquid-tab:focus-visible,
   .liquid-tab.is-active { color: Highlight; }
 }
 
