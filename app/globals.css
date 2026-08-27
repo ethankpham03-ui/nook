@@ -26,10 +26,16 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
+  min-height: 100dvh;
+  overscroll-behavior: none;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
@@ -48,6 +54,7 @@ body {
   --strong-line: rgba(30, 33, 28, 0.25);
   --bar: #d9ddd3;
   position: relative;
+  min-height: 100dvh;
   isolation: isolate;
   overflow: hidden;
   background-color: color-mix(in srgb, var(--canvas) 88%, var(--tab-wash) 12%);
@@ -83,14 +90,23 @@ body {
 
 .nook-app.is-dark::before { opacity: 0.2; }
 
-.nook-shell { transition: background-color 320ms ease, border-color 320ms ease; }
+.nook-shell {
+  height: calc(100dvh - 24px);
+  transition: background-color 320ms ease, border-color 320ms ease;
+}
 
 .nook-header {
   background: color-mix(in srgb, var(--shell) 92%, transparent);
   backdrop-filter: blur(12px);
 }
 
-button, select { cursor: pointer; }
+button, select {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active { transform: scale(0.98); }
 
 button:focus-visible,
 select:focus-visible,
@@ -330,9 +346,29 @@ textarea:focus-visible {
 }
 
 .nook-shell > .nook-scroll { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
-.nook-scroll { scrollbar-width: thin; scrollbar-color: var(--strong-line) transparent; }
+.nook-scroll {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--strong-line) transparent;
+}
+.has-dialog .nook-scroll { overflow: hidden; }
 .nook-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
 .nook-scroll::-webkit-scrollbar-thumb { background: var(--strong-line); border-radius: 999px; }
+
+.mobile-sheet {
+  max-height: calc(100dvh - max(16px, env(safe-area-inset-top)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet-handle {
+  display: block;
+  width: 38px;
+  height: 4px;
+  margin: 2px auto 14px;
+  border-radius: 999px;
+  background: var(--strong-line);
+}
 
 ::selection { background: #dfff64; color: #20231f; }
 
@@ -342,6 +378,7 @@ textarea:focus-visible {
 }
 
 @media (min-width: 640px) {
+  .nook-shell { height: calc(100dvh - 40px); }
   .home-pulse-item + .home-pulse-item {
     border-top: 0;
     border-left: 1px solid var(--line);
@@ -349,6 +386,32 @@ textarea:focus-visible {
 }
 
 @media (max-width: 639px) {
+  .nook-app { padding: 0; }
+  .nook-app::before { inset: 35% -36% -24%; }
+  .nook-shell {
+    height: 100dvh;
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .nook-header {
+    padding-top: max(12px, calc(env(safe-area-inset-top) + 8px));
+  }
+  .nook-scroll {
+    scroll-padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  }
+  .mobile-sheet {
+    padding-bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+  }
+  .mobile-sheet-backdrop { padding-top: env(safe-area-inset-top); }
+  .note-editor { min-height: min(52dvh, 390px); }
+  .mobile-toast {
+    right: 12px;
+    bottom: calc(5.8rem + env(safe-area-inset-bottom));
+    left: 12px;
+    max-width: none;
+    text-align: center;
+  }
   .liquid-nav {
     --dock-padding: 6px;
     bottom: max(12px, env(safe-area-inset-bottom));
@@ -356,6 +419,23 @@ textarea:focus-visible {
   .liquid-tab { height: 54px; }
   .dock-icon { width: 20px; height: 20px; }
   .dock-label { font-size: 9px; }
+}
+
+@media (max-width: 359px) {
+  .nook-header { gap: 4px; }
+  .nook-header > div:last-child { gap: 4px; }
+  .home-actions { flex-direction: column; }
+  .home-actions > button { width: 100%; }
+}
+
+@media (max-width: 767px) and (max-height: 520px) {
+  .focus-card { min-height: 330px; }
+  .home-hero > div:last-child { min-height: 250px; }
+}
+
+@media (hover: none) {
+  .home-pulse-item:hover { background: transparent; }
+  .habit-tile:hover { transform: none; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

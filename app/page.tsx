@@ -1,10 +1,20 @@
 'use client';
 
+import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
 import { CheckSquareOffset } from '@phosphor-icons/react/CheckSquareOffset';
+import { Check } from '@phosphor-icons/react/Check';
+import { DownloadSimple } from '@phosphor-icons/react/DownloadSimple';
 import { House } from '@phosphor-icons/react/House';
+import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
+import { Moon } from '@phosphor-icons/react/Moon';
 import { NotePencil } from '@phosphor-icons/react/NotePencil';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { Play } from '@phosphor-icons/react/Play';
+import { Plus } from '@phosphor-icons/react/Plus';
 import { Repeat } from '@phosphor-icons/react/Repeat';
+import { Sun } from '@phosphor-icons/react/Sun';
 import { Timer } from '@phosphor-icons/react/Timer';
+import { X } from '@phosphor-icons/react/X';
 import type { ChangeEvent, CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -189,6 +199,14 @@ export default function Home() {
   }, [toast]);
 
   useEffect(() => {
+    if (!paletteOpen) return;
+    const focusCommand = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>('[data-command-first="true"]')?.focus();
+    });
+    return () => window.cancelAnimationFrame(focusCommand);
+  }, [paletteOpen]);
+
+  useEffect(() => {
     const syncFromHash = () => {
       const hash = window.location.hash.slice(1) as AppTab;
       if (TABS.some((tab) => tab.id === hash)) setActiveTab(hash);
@@ -246,6 +264,7 @@ export default function Home() {
     setPreviewTab(null);
     setLensPosition(null);
     if (window.location.hash !== `#${tab}`) window.history.pushState(null, '', `#${tab}`);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.nook-scroll')?.scrollTo({ top: 0 }));
   }
 
   function lensPositionFromPointer(clientX: number) {
@@ -359,22 +378,22 @@ export default function Home() {
   }
 
   const commands = [
-    { label: 'Create a new task', hint: 'N', action: () => { activateTab('today'); setTaskModalOpen(true); } },
-    { label: timerRunning ? 'Pause focus timer' : 'Start focus timer', hint: 'Space', action: () => { activateTab('focus'); setTimerRunning((running) => !running); } },
-    { label: dark ? 'Use light theme' : 'Use dark theme', hint: 'T', action: () => setDark((value) => !value) },
-    { label: 'Open daily note', hint: 'D', action: () => activateTab('notes') },
-    { label: 'Export private backup', hint: 'E', action: exportData },
+    { label: 'Create a new task', icon: Plus, action: () => { activateTab('today'); setTaskModalOpen(true); } },
+    { label: timerRunning ? 'Pause focus timer' : 'Start focus timer', icon: timerRunning ? Pause : Play, action: () => { activateTab('focus'); setTimerRunning((running) => !running); } },
+    { label: dark ? 'Use light theme' : 'Use dark theme', icon: dark ? Sun : Moon, action: () => setDark((value) => !value) },
+    { label: 'Open daily note', icon: NotePencil, action: () => activateTab('notes') },
+    { label: 'Export private backup', icon: DownloadSimple, action: exportData },
   ];
 
   return (
     <main
-      className={'nook-app ' + (dark ? 'is-dark ' : '') + 'min-h-screen p-3 text-[var(--ink)] sm:p-5'}
+      className={'nook-app ' + (dark ? 'is-dark ' : '') + (taskModalOpen || paletteOpen ? 'has-dialog ' : '') + 'min-h-screen p-3 text-[var(--ink)] sm:p-5'}
       style={appStyle}
     >
       <div className="nook-shell relative z-[1] mx-auto flex min-h-[calc(100vh-24px)] max-w-[1380px] flex-col overflow-hidden rounded-[30px] border border-[var(--line)] bg-[var(--shell)] shadow-[0_24px_80px_rgba(37,39,32,0.08)] sm:min-h-[calc(100vh-40px)]">
-        <header className="nook-header flex items-center gap-3 border-b border-[var(--line)] px-4 py-4 sm:px-7">
-          <button className="flex shrink-0 items-center gap-3 text-left" onClick={() => activateTab('home')} aria-label="Open Nook home">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#20231f] text-sm font-black text-[#dfff64]">N</span>
+        <header className="nook-header flex items-center gap-2 border-b border-[var(--line)] px-3 py-3 sm:gap-3 sm:px-7 sm:py-4">
+          <button className="flex min-h-11 shrink-0 items-center gap-3 text-left" onClick={() => activateTab('home')} aria-label="Open Nook home">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#20231f] text-sm font-black text-[#dfff64] sm:h-10 sm:w-10">N</span>
             <span className="hidden text-lg font-semibold tracking-[-0.04em] sm:block">nook</span>
           </button>
 
@@ -387,26 +406,27 @@ export default function Home() {
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="hidden h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--card)] px-3 text-xs text-[var(--muted)] sm:flex"
-              aria-label="Open command menu"
+              className="grid h-11 w-11 place-items-center rounded-full border border-[var(--line)] bg-[var(--card)] text-[var(--muted)] sm:flex sm:w-auto sm:gap-2 sm:px-3"
+              aria-label="Open quick actions"
             >
-              <span className="text-lg leading-none">⌕</span>
-              <span>Search</span>
-              <kbd className="rounded-md bg-[var(--soft)] px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+              <MagnifyingGlass size={20} weight="bold" aria-hidden="true" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden rounded-md bg-[var(--soft)] px-1.5 py-0.5 text-[10px] sm:inline">⌘K</kbd>
             </button>
             <button
               onClick={() => setDark((value) => !value)}
-              className="grid h-10 w-10 place-items-center rounded-full border border-[var(--line)] bg-[var(--card)]"
+              className="grid h-11 w-11 place-items-center rounded-full border border-[var(--line)] bg-[var(--card)] sm:h-10 sm:w-10"
               aria-label={dark ? 'Use light theme' : 'Use dark theme'}
             >
-              {dark ? '☀' : '☾'}
+              {dark ? <Sun size={20} weight="bold" aria-hidden="true" /> : <Moon size={20} weight="bold" aria-hidden="true" />}
             </button>
             <button
               onClick={() => { activateTab('today'); setTaskModalOpen(true); }}
-              className="h-10 rounded-full bg-[var(--ink)] px-3 text-sm font-medium text-[var(--reverse)] sm:px-4"
+              className="grid h-11 w-11 place-items-center rounded-full bg-[var(--ink)] text-sm font-medium text-[var(--reverse)] sm:flex sm:h-10 sm:w-auto sm:px-4"
+              aria-label="Create a new task"
             >
-              <span className="sm:hidden">+</span>
-              <span className="hidden sm:inline">+ New task</span>
+              <Plus size={20} weight="bold" className="sm:hidden" aria-hidden="true" />
+              <span className="hidden sm:inline">New task</span>
             </button>
           </div>
         </header>
@@ -444,23 +464,23 @@ export default function Home() {
                             {activeTask ? activeTask.category + ' · ' + activeTask.minutes + ' min' : 'Capture one clear action when you are ready.'}
                           </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="home-actions flex w-full gap-2 sm:w-auto">
                           {activeTask ? (
                             <button
                               onClick={() => { setSelectedTaskId(activeTask.id); activateTab('focus'); }}
-                              className="rounded-full bg-[#dfff64] px-5 py-2.5 text-sm font-semibold text-[#20231f]"
+                              className="min-h-11 flex-1 rounded-full bg-[#dfff64] px-5 py-2.5 text-sm font-semibold text-[#20231f] sm:flex-none"
                             >
                               Start focus
                             </button>
                           ) : (
                             <button
                               onClick={() => { activateTab('today'); setTaskModalOpen(true); }}
-                              className="rounded-full bg-[#dfff64] px-5 py-2.5 text-sm font-semibold text-[#20231f]"
+                              className="min-h-11 flex-1 rounded-full bg-[#dfff64] px-5 py-2.5 text-sm font-semibold text-[#20231f] sm:flex-none"
                             >
                               Add a task
                             </button>
                           )}
-                          <button onClick={() => activateTab('today')} className="rounded-full bg-white/10 px-4 py-2.5 text-sm text-white/80">
+                          <button onClick={() => activateTab('today')} className="min-h-11 flex-1 rounded-full bg-white/10 px-4 py-2.5 text-sm text-white/80 sm:flex-none">
                             View today
                           </button>
                         </div>
@@ -496,7 +516,7 @@ export default function Home() {
                       <h1 className="mt-2 text-[clamp(2.2rem,5vw,4rem)] font-semibold leading-none tracking-[-0.055em]">Three things, no noise.</h1>
                       <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--muted)]">Choose what matters now. Everything stays on this device.</p>
                     </div>
-                    <button onClick={() => setTaskModalOpen(true)} className="w-fit rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--reverse)]">+ New task</button>
+                    <button onClick={() => setTaskModalOpen(true)} className="min-h-11 w-full rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--reverse)] sm:w-fit">New task</button>
                   </div>
 
                   <section className="rounded-[26px] border border-[var(--line)] bg-[var(--card)] p-5 sm:p-7">
@@ -509,23 +529,25 @@ export default function Home() {
                         <article key={task.id} className={'group flex items-center gap-3 py-4 first:pt-0 last:pb-0 ' + (activeTask?.id === task.id ? 'task-active' : '')}>
                           <button
                             onClick={() => toggleTask(task.id)}
-                            className={'grid h-7 w-7 shrink-0 place-items-center rounded-full border ' + (task.done ? 'border-[var(--ink)] bg-[var(--ink)] text-xs text-[var(--reverse)]' : 'border-[var(--strong-line)]')}
+                            className="task-check grid h-11 w-11 shrink-0 place-items-center rounded-full"
                             aria-label={task.done ? 'Mark ' + task.title + ' incomplete' : 'Complete ' + task.title}
                           >
-                            {task.done ? '✓' : ''}
+                            <span className={'grid h-7 w-7 place-items-center rounded-full border ' + (task.done ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--reverse)]' : 'border-[var(--strong-line)]')}>
+                              {task.done && <Check size={15} weight="bold" aria-hidden="true" />}
+                            </span>
                           </button>
                           <button onClick={() => setSelectedTaskId(task.id)} className="min-w-0 flex-1 text-left">
                             <h2 className={'truncate text-base font-medium ' + (task.done ? 'text-[var(--muted)] line-through' : '')}>{task.title}</h2>
                             <p className="mt-0.5 text-xs text-[var(--muted)]">{task.category} · {task.minutes} min</p>
                           </button>
                           {activeTask?.id === task.id && <span className="hidden rounded-full bg-[#dfff64] px-2.5 py-1 text-[10px] font-semibold text-[#20231f] sm:block">NEXT</span>}
-                          <button onClick={() => deleteTask(task.id)} className="grid h-9 w-9 place-items-center rounded-full text-[var(--muted)] opacity-70 transition hover:bg-[var(--soft)] hover:opacity-100" aria-label={'Delete ' + task.title}>×</button>
+                          <button onClick={() => deleteTask(task.id)} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[var(--muted)] opacity-70 transition hover:bg-[var(--soft)] hover:opacity-100" aria-label={'Delete ' + task.title}><X size={17} weight="bold" aria-hidden="true" /></button>
                         </article>
                       )) : (
                         <div className="py-16 text-center">
                           <p className="text-xl font-medium tracking-[-0.025em]">A quiet start.</p>
                           <p className="mt-2 text-sm text-[var(--muted)]">Add one clear action for today.</p>
-                          <button onClick={() => setTaskModalOpen(true)} className="mt-5 rounded-full bg-[#dfff64] px-5 py-2.5 text-sm font-semibold text-[#20231f]">Add a task</button>
+                          <button onClick={() => setTaskModalOpen(true)} className="mt-5 min-h-11 rounded-full bg-[#dfff64] px-5 py-2.5 text-sm font-semibold text-[#20231f]">Add a task</button>
                         </div>
                       )}
                     </div>
@@ -543,7 +565,7 @@ export default function Home() {
 
                   <section className="habit-world relative overflow-hidden rounded-[28px] bg-[#e7d9ff] p-5 text-[#20231f] sm:p-8">
                     <div className="habit-orbit" aria-hidden="true" />
-                    <div className="relative z-[1] flex items-center justify-between">
+                    <div className="relative z-[1] flex flex-col items-start justify-between gap-3 min-[380px]:flex-row min-[380px]:items-center">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.13em] text-[#695f75]">This week</p>
                         <p className="mt-2 text-2xl font-semibold tracking-[-0.035em]">{habitsToday} of {habits.length} done today</p>
@@ -555,14 +577,16 @@ export default function Home() {
                         <button
                           key={habit.id}
                           onClick={() => toggleHabit(habit.id)}
-                          className="habit-tile min-h-[190px] rounded-[22px] bg-white/58 p-5 text-left transition hover:-translate-y-1 hover:bg-white/72"
+                          className="habit-tile flex min-h-[104px] items-center gap-4 rounded-[22px] bg-white/58 p-4 text-left transition hover:-translate-y-1 hover:bg-white/72 sm:block sm:min-h-[190px] sm:p-5"
                           aria-pressed={habit.checkedToday}
                         >
-                          <div className={'grid h-11 w-11 place-items-center rounded-full text-sm font-semibold ' + (habit.checkedToday ? 'bg-[#dfff64] text-[#20231f]' : 'bg-[#20231f] text-white')}>
-                            {habit.checkedToday ? '✓' : habit.mark}
+                          <div className={'grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold ' + (habit.checkedToday ? 'bg-[#dfff64] text-[#20231f]' : 'bg-[#20231f] text-white')}>
+                            {habit.checkedToday ? <Check size={18} weight="bold" aria-hidden="true" /> : habit.mark}
                           </div>
-                          <p className="mt-8 text-xl font-semibold tracking-[-0.03em]">{habit.label}</p>
-                          <p className="mt-1 text-sm text-[#756a80]">{habit.count}/7 days</p>
+                          <div>
+                            <p className="text-xl font-semibold tracking-[-0.03em] sm:mt-8">{habit.label}</p>
+                            <p className="mt-1 text-sm text-[#756a80]">{habit.count}/7 days</p>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -582,31 +606,31 @@ export default function Home() {
                   </div>
 
                   <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-                    <section className="nook-grid-pattern relative min-h-[420px] overflow-hidden rounded-[28px] bg-[#20231f] p-6 text-white sm:p-8">
+                    <section className="focus-card nook-grid-pattern relative min-h-[350px] overflow-hidden rounded-[28px] bg-[#20231f] p-5 text-white sm:min-h-[420px] sm:p-8">
                       <div className="absolute -right-12 -top-16 h-56 w-56 rounded-full bg-[#dfff64]/15 blur-3xl" />
                       <div className="relative flex h-full flex-col">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-semibold uppercase tracking-[0.13em] text-white/55">Deep focus</p>
                           <div className="flex rounded-full bg-white/10 p-1 text-xs">
                             {[25, 50].map((minutes) => (
-                              <button key={minutes} onClick={() => choosePreset(minutes)} className={'rounded-full px-3 py-1.5 ' + (timerPreset === minutes ? 'bg-white text-[#20231f]' : 'text-white/65')}>{minutes}m</button>
+                              <button key={minutes} onClick={() => choosePreset(minutes)} className={'min-h-11 min-w-12 rounded-full px-3 py-1.5 ' + (timerPreset === minutes ? 'bg-white text-[#20231f]' : 'text-white/65')}>{minutes}m</button>
                             ))}
                           </div>
                         </div>
-                        <p className="timer-digits mt-10 font-mono text-[clamp(4.4rem,12vw,8.4rem)] leading-none tracking-[-0.08em]" aria-live="off">{formatTimer(timerSeconds)}</p>
+                        <p className="timer-digits mt-10 whitespace-nowrap font-mono text-[clamp(3rem,17vw,8.4rem)] leading-none tracking-[-0.06em] sm:text-[clamp(4.4rem,12vw,8.4rem)]" aria-live="off">{formatTimer(timerSeconds)}</p>
                         <label className="mt-5 block text-xs text-white/60" htmlFor="focus-task">Working on</label>
                         <select
                           id="focus-task"
                           value={activeTask?.id ?? ''}
                           onChange={(event) => setSelectedTaskId(event.target.value)}
-                          className="mt-1 w-full max-w-md appearance-none truncate border-0 bg-transparent p-0 text-base text-white/82 outline-none"
+                          className="mt-1 min-h-11 w-full max-w-md appearance-none truncate border-0 bg-transparent p-0 text-base text-white/82 outline-none"
                         >
                           {tasks.map((task) => <option key={task.id} value={task.id} className="text-black">{task.title}</option>)}
                           {!tasks.length && <option value="" className="text-black">A quiet focus session</option>}
                         </select>
                         <div className="mt-auto flex items-center gap-2 pt-10">
-                          <button onClick={() => setTimerRunning((running) => !running)} className="rounded-full bg-[#dfff64] px-6 py-3 text-sm font-semibold text-[#20231f]">{timerRunning ? 'Pause' : 'Start focus'}</button>
-                          <button onClick={resetTimer} className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white/75" aria-label="Reset timer">↻</button>
+                          <button onClick={() => setTimerRunning((running) => !running)} className="min-h-11 flex-1 rounded-full bg-[#dfff64] px-6 py-3 text-sm font-semibold text-[#20231f] sm:flex-none">{timerRunning ? 'Pause' : 'Start focus'}</button>
+                          <button onClick={resetTimer} className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white/75" aria-label="Reset timer"><ArrowCounterClockwise size={20} weight="bold" aria-hidden="true" /></button>
                         </div>
                       </div>
                     </section>
@@ -653,7 +677,7 @@ export default function Home() {
                       <textarea
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
-                        className="mt-5 min-h-[390px] w-full resize-y rounded-[18px] border border-[var(--line)] bg-[var(--soft)] p-5 font-mono text-sm leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--strong-line)]"
+                        className="note-editor mt-5 min-h-[390px] w-full resize-y rounded-[18px] border border-[var(--line)] bg-[var(--soft)] p-4 font-mono text-base leading-7 text-[var(--ink)] outline-none transition focus:border-[var(--strong-line)] sm:p-5 sm:text-sm"
                         aria-label="Daily note in Markdown"
                         spellCheck
                       />
@@ -665,8 +689,8 @@ export default function Home() {
                       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.035em]">Private by default.</h2>
                       <p className="mt-3 text-sm leading-6 text-white/62">No account, cloud, analytics, or tracking. Export a JSON backup whenever you want one.</p>
                       <div className="mt-7 grid gap-2">
-                        <button onClick={exportData} className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#20231f]">Export backup</button>
-                        <button onClick={() => importRef.current?.click()} className="rounded-full bg-white/10 px-4 py-2.5 text-sm text-white/80">Import backup</button>
+                        <button onClick={exportData} className="min-h-11 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#20231f]">Export backup</button>
+                        <button onClick={() => importRef.current?.click()} className="min-h-11 rounded-full bg-white/10 px-4 py-2.5 text-sm text-white/80">Import backup</button>
                       </div>
                     </aside>
                   </div>
@@ -674,9 +698,12 @@ export default function Home() {
               )}
             </section>
 
-            <footer className="flex items-center justify-between gap-4 py-6 text-[10px] text-[var(--muted)]">
+            <footer className="flex items-center justify-between gap-4 py-5 text-[10px] text-[var(--muted)] sm:py-6">
               <p>No account. No cloud. No tracking.</p>
-              <button onClick={() => setPaletteOpen(true)} className="hover:text-[var(--ink)]">Ctrl K · Commands</button>
+              <button onClick={() => setPaletteOpen(true)} className="min-h-11 shrink-0 px-2 text-xs hover:text-[var(--ink)]">
+                <span className="sm:hidden">Quick actions</span>
+                <span className="hidden sm:inline">Ctrl K · Commands</span>
+              </button>
             </footer>
           </div>
         </section>
@@ -749,59 +776,66 @@ export default function Home() {
       <input ref={importRef} type="file" accept="application/json" onChange={importData} className="hidden" aria-hidden="true" />
 
       {taskModalOpen && (
-        <div className="modal-backdrop fixed inset-0 z-50 grid place-items-center p-4" onMouseDown={() => setTaskModalOpen(false)}>
-          <form onSubmit={addTask} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-md rounded-[24px] border border-[var(--line)] bg-[var(--card)] p-6 text-[var(--ink)] shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="new-task-title">
+        <div className="modal-backdrop mobile-sheet-backdrop fixed inset-0 z-50 flex items-end justify-center sm:grid sm:place-items-center sm:p-4" onPointerDown={() => setTaskModalOpen(false)}>
+          <form onSubmit={addTask} onPointerDown={(event) => event.stopPropagation()} className="mobile-sheet w-full max-w-md rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] p-5 text-[var(--ink)] shadow-2xl sm:rounded-[24px] sm:p-6" role="dialog" aria-modal="true" aria-labelledby="new-task-title">
+            <span className="sheet-handle sm:hidden" aria-hidden="true" />
             <div className="flex items-center justify-between">
               <div>
                 <p className="eyebrow">Capture</p>
                 <h2 id="new-task-title" className="mt-1 text-2xl font-semibold tracking-[-0.04em]">What needs doing?</h2>
               </div>
-              <button type="button" onClick={() => setTaskModalOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-[var(--soft)]" aria-label="Close">×</button>
+              <button type="button" onClick={() => setTaskModalOpen(false)} className="grid h-11 w-11 place-items-center rounded-full bg-[var(--soft)]" aria-label="Close new task"><X size={18} weight="bold" aria-hidden="true" /></button>
             </div>
             <label className="mt-6 block text-xs font-medium text-[var(--muted)]" htmlFor="task-title">Task</label>
-            <input id="task-title" autoFocus value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Write the next clear action" className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-4 py-3 text-sm outline-none focus:border-[var(--strong-line)]" />
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <input id="task-title" autoFocus value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Write the next clear action" className="mt-2 min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-4 py-3 text-base outline-none focus:border-[var(--strong-line)] sm:text-sm" />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="text-xs font-medium text-[var(--muted)]">Category
-                <select value={taskCategory} onChange={(event) => setTaskCategory(event.target.value)} className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-3 py-3 text-sm text-[var(--ink)] outline-none">
+                <select value={taskCategory} onChange={(event) => setTaskCategory(event.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-3 py-3 text-base text-[var(--ink)] outline-none sm:text-sm">
                   {['Work', 'Design', 'Personal', 'Learning'].map((category) => <option key={category}>{category}</option>)}
                 </select>
               </label>
               <label className="text-xs font-medium text-[var(--muted)]">Estimate
-                <select value={taskMinutes} onChange={(event) => setTaskMinutes(Number(event.target.value))} className="mt-2 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-3 py-3 text-sm text-[var(--ink)] outline-none">
+                <select value={taskMinutes} onChange={(event) => setTaskMinutes(Number(event.target.value))} className="mt-2 min-h-12 w-full rounded-xl border border-[var(--line)] bg-[var(--soft)] px-3 py-3 text-base text-[var(--ink)] outline-none sm:text-sm">
                   {[10, 20, 25, 45, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes} min</option>)}
                 </select>
               </label>
             </div>
-            <button type="submit" className="mt-6 w-full rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-[var(--reverse)]">Add to today</button>
+            <button type="submit" className="mt-6 min-h-12 w-full rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-[var(--reverse)]">Add to today</button>
           </form>
         </div>
       )}
 
       {paletteOpen && (
-        <div className="modal-backdrop fixed inset-0 z-50 flex justify-center p-4 pt-[12vh]" onMouseDown={() => setPaletteOpen(false)}>
-          <div onMouseDown={(event) => event.stopPropagation()} className="h-fit w-full max-w-lg overflow-hidden rounded-[22px] border border-[var(--line)] bg-[var(--card)] text-[var(--ink)] shadow-2xl" role="dialog" aria-modal="true" aria-label="Command menu">
+        <div className="modal-backdrop mobile-sheet-backdrop fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:p-4 sm:pt-[12vh]" onPointerDown={() => setPaletteOpen(false)}>
+          <div onPointerDown={(event) => event.stopPropagation()} className="mobile-sheet h-fit w-full max-w-lg overflow-hidden rounded-t-[28px] border border-[var(--line)] bg-[var(--card)] text-[var(--ink)] shadow-2xl sm:rounded-[22px]" role="dialog" aria-modal="true" aria-label="Quick actions">
+            <span className="sheet-handle sm:hidden" aria-hidden="true" />
             <div className="flex items-center gap-3 border-b border-[var(--line)] px-5 py-4">
-              <span className="text-xl text-[var(--muted)]">⌕</span>
-              <p className="text-sm text-[var(--muted)]">Quick actions</p>
-              <kbd className="ml-auto rounded-md bg-[var(--soft)] px-2 py-1 text-[10px] text-[var(--muted)]">ESC</kbd>
+              <MagnifyingGlass size={20} weight="bold" className="text-[var(--muted)]" aria-hidden="true" />
+              <p className="text-sm font-medium">Quick actions</p>
+              <kbd className="ml-auto hidden rounded-md bg-[var(--soft)] px-2 py-1 text-[10px] text-[var(--muted)] sm:inline">ESC</kbd>
+              <button type="button" onClick={() => setPaletteOpen(false)} className="ml-auto grid h-11 w-11 place-items-center rounded-full bg-[var(--soft)] sm:hidden" aria-label="Close quick actions"><X size={18} weight="bold" aria-hidden="true" /></button>
             </div>
             <div className="p-2">
-              {commands.map((command) => (
-                <button
-                  key={command.label}
-                  onClick={() => { setPaletteOpen(false); command.action(); }}
-                  className="flex w-full items-center rounded-xl px-3 py-3 text-left text-sm transition hover:bg-[var(--soft)]"
-                >
-                  <span>{command.label}</span>
-                  <kbd className="ml-auto rounded-md border border-[var(--line)] px-2 py-0.5 text-[10px] text-[var(--muted)]">{command.hint}</kbd>
-                </button>
-              ))}
+              {commands.map((command, index) => {
+                const CommandIcon = command.icon;
+                return (
+                  <button
+                    data-command-first={index === 0 ? 'true' : undefined}
+                    key={command.label}
+                    onClick={() => { setPaletteOpen(false); command.action(); }}
+                    className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition hover:bg-[var(--soft)]"
+                  >
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--soft)] text-[var(--muted)]"><CommandIcon size={18} weight="bold" aria-hidden="true" /></span>
+                    <span>{command.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {toast && <div role="status" className="fixed bottom-28 right-5 z-[60] max-w-sm rounded-full bg-[#20231f] px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>}
+      {toast && <div role="status" className="mobile-toast fixed bottom-28 right-5 z-[60] max-w-sm rounded-full bg-[#20231f] px-4 py-2.5 text-sm text-white shadow-xl">{toast}</div>}
     </main>
   );
 }

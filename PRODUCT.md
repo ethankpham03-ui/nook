@@ -24,10 +24,11 @@ collaborative project-management system or an account-based cloud workspace.
 
 ## Operating Context
 
-Nook is used in a browser, primarily as a personal desktop or laptop workspace
-with a responsive mobile surface. A typical loop is to capture a task, select it
-for a 25- or 50-minute focus session, mark habits, and leave a short daily note.
-JSON export and import provide a manual device-local backup path.
+Nook is used in a browser as a personal desktop, laptop, or mobile workspace
+with touch-friendly controls and a responsive app shell. A typical loop is to
+capture a task, select it for a 25- or 50-minute focus session, mark habits, and
+leave a short daily note. JSON export and import provide a manual device-local
+backup path.
 
 ## Capabilities and Constraints
 
@@ -37,8 +38,9 @@ JSON export and import provide a manual device-local backup path.
   summary.
 - Habit checks and the daily Markdown note are stored with the rest of the app
   state under `nook.local.v1` in browser storage.
-- The app supports light and dark themes, a keyboard command menu, private JSON
-  export/import, and a production service-worker app shell.
+- The app supports light and dark themes, touch-friendly quick actions with a
+  keyboard shortcut, private JSON export/import, and a production service-worker
+  app shell.
 - The primary interface is split across five hash-backed views: Today for
   tasks, Habits for the daily ritual, Home for a concise launchpad, Focus for
   Deep Focus plus Focus Rhythm, and Notes for the daily note plus backup.

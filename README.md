@@ -15,7 +15,7 @@ cloud database, or tracking, and keeps personal data in the current browser.
 - One-tap habit tracking
 - Autosaved Markdown daily note
 - Light and dark themes
-- Keyboard command menu with `Ctrl/⌘ + K`
+- Touch-friendly quick actions with a `Ctrl/⌘ + K` keyboard shortcut
 - Private JSON export and import
 - Offline app shell after the first production visit
 - Responsive, accessible interface
