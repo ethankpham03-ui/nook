@@ -59,6 +59,7 @@
   --font-geist-sans: '1FTV Coolvetica Condensed Rg', 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-geist-mono: 'Nook Mono', 'Nook Mono Ext', ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SFMono-Regular", Consolas, monospace;
   --font-ui-tracking: 0.04em;
+  --font-ui-word-spacing: 0.03em;
 }
 
 @theme inline {
@@ -84,7 +85,20 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   letter-spacing: var(--font-ui-tracking);
+  word-spacing: var(--font-ui-word-spacing);
 }
+
+button,
+input,
+select,
+textarea { word-spacing: var(--font-ui-word-spacing); }
+
+.v2-brand-name,
+.v2-view-header__title,
+.v2-quiet-move__title,
+.v2-dialog-title,
+.v3-launch__wordmark,
+.v3-onboarding__copy h1 { word-spacing: normal; }
 
 html:has(.nook-app.is-dark),
 body:has(.nook-app.is-dark) {
@@ -1280,10 +1294,14 @@ textarea:focus-visible {
 .v2-number-input { width: 100%; min-height: 46px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-family: var(--font-geist-mono), monospace; }
 .v2-weekly-compass__measures dd,
 .v2-capacity__input,
+.v2-focus-timer__digits,
 .v2-focus-history__value,
 .v2-note-editor__textarea,
 .v2-profile span,
-.v2-number-input { letter-spacing: normal; }
+.v2-number-input {
+  letter-spacing: normal;
+  word-spacing: normal;
+}
 .v2-number-suffix { color: var(--muted); font-size: 0.74rem; }
 .v2-field-hint { display: block; margin-top: 6px; color: var(--muted); font-size: 0.7rem; }
 .v2-textarea { width: 100%; margin-top: 7px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; resize: vertical; background: var(--soft); color: var(--ink); font: inherit; line-height: 1.55; }
