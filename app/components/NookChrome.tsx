@@ -44,14 +44,15 @@ export type CloseDayValues = {
 };
 
 const TAB_ITEMS = [
-  { id: 'today', icon: CheckSquareOffset },
-  { id: 'habits', icon: Repeat },
-  { id: 'home', icon: House },
-  { id: 'focus', icon: Timer },
-  { id: 'notes', icon: NotePencil },
+  { id: 'today', icon: CheckSquareOffset, accent: '#dfff64' },
+  { id: 'habits', icon: Repeat, accent: '#d8c1ff' },
+  { id: 'home', icon: House, accent: '#fff1a8' },
+  { id: 'focus', icon: Timer, accent: '#8be3e0' },
+  { id: 'notes', icon: NotePencil, accent: '#ffc6a3' },
 ] satisfies ReadonlyArray<{
   id: Tab;
   icon: typeof House;
+  accent: string;
 }>;
 
 const ENERGY_OPTIONS = [
@@ -175,8 +176,11 @@ export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookD
   const trackRef = useRef<HTMLDivElement>(null);
   const dragPointerRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
+  const lensIndex = previewIndex ?? Math.max(0, activeIndex);
+  const lensItem = TAB_ITEMS[lensIndex] ?? TAB_ITEMS[0];
   const dockStyle = {
-    '--active-tab-index': previewIndex ?? Math.max(0, activeIndex),
+    '--active-tab-index': lensIndex,
+    '--dock-accent': lensItem.accent,
   } as CSSProperties;
 
   function indexAtPointer(clientX: number): number | null {
@@ -270,6 +274,7 @@ export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookD
           const TabIcon = item.icon;
           const label = copy.nav.labels[item.id];
           const isActive = item.id === activeTab;
+          const isUnderLens = index === lensIndex;
           const isHome = item.id === 'home';
 
           return (
@@ -292,6 +297,7 @@ export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookD
               aria-controls="nook-tab-panel"
               tabIndex={isActive ? 0 : -1}
               data-active={isActive ? 'true' : 'false'}
+              data-under-lens={isUnderLens ? 'true' : 'false'}
               data-tab={item.id}
             >
               <span className="v2-dock-icon" aria-hidden="true">

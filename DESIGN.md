@@ -225,6 +225,8 @@ every breakpoint, including while it is dragged between destinations.
 - A circular liquid lens previews the nearest target continuously on hover or
   a pointer-captured drag, commits that destination on release, then settles in
   about 360ms. Click remains direct selection.
+- The lens tint and foreground follow the previewed destination. The committed
+  tab remains legible off-lens in both themes while retaining its raised state.
 - Labels remain visible; the selected Focus tab may show a live timer dot.
 - Destination content arrives from the direction of travel: forward tabs move
   in from the right and backward tabs from the left. The transition is short
