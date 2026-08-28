@@ -59,7 +59,7 @@
   --font-geist-sans: '1FTV Coolvetica Condensed Rg', 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-geist-mono: 'Nook Mono', 'Nook Mono Ext', ui-monospace, "Cascadia Mono", "Segoe UI Mono", "SFMono-Regular", Consolas, monospace;
   --font-ui-tracking: 0.04em;
-  --font-ui-word-spacing: 0.03em;
+  --font-ui-word-spacing: 0.04em;
 }
 
 @theme inline {
