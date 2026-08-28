@@ -33,17 +33,19 @@ typography:
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.2
-    letterSpacing: "-0.035em"
+    letterSpacing: "0.025em"
   body:
     fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.6
+    letterSpacing: "0.025em"
   label:
     fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.4
+    letterSpacing: "0.025em"
   mono:
     fontFamily: "Nook Mono, Nook Mono Ext, Geist Mono, SFMono-Regular, monospace"
     fontSize: "0.75rem"
