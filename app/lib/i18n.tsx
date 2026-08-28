@@ -73,26 +73,43 @@ const englishCopy = {
     skip: 'Skip for now',
     back: 'Back',
     next: 'Continue',
-    finish: 'Open Morning Plan',
+    finish: 'Open today’s plan',
     progressLabel: 'Onboarding progress',
+    journeyLabel: 'How a day moves through Nook',
+    starterLabel: 'Your first three actions in Nook',
     stepStatus: (current: number, total: number) => `Step ${current} of ${total}`,
     steps: {
       welcome: {
-        title: 'A quieter place for today.',
-        description: 'Nook helps you shape a believable day, protect one intention, and keep the record on this device.',
-        note: 'No account. No cloud. About a minute.',
+        title: 'A calmer day, one move at a time.',
+        description: 'Nook turns what you can honestly carry today into one clear next move—without an account or a cloud.',
+        note: 'About two minutes. Your data stays on this device.',
       },
       shape: {
-        title: 'Start with what can honestly fit.',
-        description: 'Set your energy and available focus time. Then choose one Anchor—the work that would make today count.',
-        note: 'Everything else can support it or wait.',
+        title: 'Use Nook as a daily loop.',
+        description: 'Plan what fits, protect one Anchor, tend the smallest honest habit, then close the day.',
+        note: 'Home always points to the next useful move.',
       },
       ready: {
-        title: 'Make your first Morning Plan.',
-        description: 'Continue in the real app, where today’s capacity and plan are saved locally.',
-        note: 'Nothing leaves this device.',
+        title: 'Start with a real day, not a tutorial.',
+        description: 'Set today’s energy and focus time, add one Anchor in Today, then see it return to Home ready for Focus.',
+        note: 'Nothing is created until you choose it.',
       },
     },
+    journey: [
+      { label: 'Plan', detail: 'Capacity + one Anchor' },
+      { label: 'Focus', detail: 'Protect one intention' },
+      { label: 'Tend', detail: 'Do the honest minimum' },
+      { label: 'Close', detail: 'Keep one useful line' },
+    ],
+    concepts: [
+      { term: 'Capacity', definition: 'A limit for the day, not a target to fill.' },
+      { term: 'Anchor', definition: 'The one task that would make today count.' },
+    ],
+    starter: [
+      { label: 'Open the day', detail: 'Choose your energy and available time.' },
+      { label: 'Add one Anchor', detail: 'Place the work that matters in Today.' },
+      { label: 'Enter Focus', detail: 'Use the next move waiting on Home.' },
+    ],
   },
   home: {
     title: 'A day with room to breathe.',
@@ -114,6 +131,7 @@ const englishCopy = {
       },
       tasksPlaced: (count: number) => `${count} ${count === 1 ? 'task' : 'tasks'} placed`,
       noPlan: 'No plan recorded',
+      noAnchor: 'Day opened · no Anchor yet',
       focusRecorded: (minutes: string) => `${minutes} recorded`,
       noSession: 'No session recorded',
       habitsChecked: (checked: number, total: number) => `${checked} of ${total} habits checked`,
@@ -132,8 +150,12 @@ const englishCopy = {
       shapeTitle: 'Give the day a believable shape.',
       shapeDetail: 'Set a capacity and choose one anchor before adding more.',
       morningPlanAction: 'Morning plan',
+      chooseAnchorTitle: 'Choose the work that would make today count.',
+      chooseAnchorDetail: 'Your capacity is set. Add one Anchor in Today before anything else.',
+      addAnchorAction: 'Add an Anchor',
       anchorDetail: (category: string, minutes: string) => `${category} · ${minutes} · today’s anchor`,
       focusAnchorAction: 'Focus this anchor',
+      anchorReady: 'Your first plan is ready. This is how Nook turns an Anchor into the next move.',
       chooseTaskTitle: 'Choose the next useful task.',
       remainingTasks: (count: number) => `${count} ${count === 1 ? 'task remains' : 'tasks remain'}, with no unfinished anchor.`,
       reviewTodayAction: 'Review today',
@@ -175,6 +197,11 @@ const englishCopy = {
       minutes: 'Minutes',
       lane: 'Lane',
       addTask: 'Add task',
+    },
+    firstAnchor: {
+      title: 'Start with one Anchor.',
+      description: 'Name the task that would make today count and estimate it honestly. Support and Optional work can come later.',
+      laneGuide: 'Anchor leads the day. Support helps it. Optional can wait.',
     },
     lanes: {
       anchor: {
@@ -425,11 +452,15 @@ const englishCopy = {
     readError: 'Saved data could not be read. It is preserved; import a backup or reset to resume saving.',
     saveError: 'Could not save on this device. Keep this tab open and export a backup.',
     focusComplete: 'Focus session complete. The real minutes are in your rhythm.',
-    anchorSet: 'Anchor set. Previous anchor moved to Support.',
+    anchorSet: (movedPrevious: boolean) => movedPrevious
+      ? 'Anchor set. The previous Anchor moved to Support.'
+      : 'Anchor set for today.',
+    anchorReady: 'Your Anchor is now the next quiet move on Home.',
     taskAdded: 'Task added to today.',
     taskRestored: 'Task restored.',
     taskRemoved: 'Task removed. Undo is available for a moment.',
     morningSaved: 'Morning plan saved on this device.',
+    morningNextAnchor: 'Day opened. Add one Anchor next.',
     dayClosed: 'Today is closed. Nothing else needs to be optimized.',
     habitAdded: 'Habit added with a minimum version.',
     alreadyFits: 'Today already fits inside the capacity you set.',
@@ -446,7 +477,7 @@ const englishCopy = {
 } as const;
 
 type WidenCopy<T> = T extends (...args: infer Args) => infer Result
-  ? (...args: Args) => Result
+  ? (...args: Args) => WidenCopy<Result>
   : T extends string
     ? string
     : T extends object
@@ -514,26 +545,43 @@ const vietnameseCopy = {
     skip: 'Bỏ qua lúc này',
     back: 'Quay lại',
     next: 'Tiếp tục',
-    finish: 'Mở Kế hoạch buổi sáng',
+    finish: 'Mở kế hoạch hôm nay',
     progressLabel: 'Tiến trình làm quen',
+    journeyLabel: 'Một ngày di chuyển qua Nook như thế nào',
+    starterLabel: 'Ba thao tác đầu tiên trong Nook',
     stepStatus: (current: number, total: number) => `Bước ${current} trên ${total}`,
     steps: {
       welcome: {
-        title: 'Một khoảng yên cho ngày hôm nay.',
-        description: 'Nook giúp bạn sắp xếp một ngày vừa sức, bảo vệ một ý định rõ ràng và lưu lại mọi thứ ngay trên thiết bị này.',
-        note: 'Không tài khoản. Không đám mây. Chỉ khoảng một phút.',
+        title: 'Một ngày yên hơn, từng bước một.',
+        description: 'Nook biến phần bạn thật sự có thể gánh hôm nay thành một bước tiếp theo rõ ràng—không tài khoản, không đám mây.',
+        note: 'Khoảng hai phút. Dữ liệu luôn ở thiết bị này.',
       },
       shape: {
-        title: 'Bắt đầu từ phần thật sự vừa sức.',
-        description: 'Chọn mức năng lượng và thời gian tập trung bạn có. Sau đó chọn một Việc chính—việc khiến hôm nay trở nên đáng giá.',
-        note: 'Phần còn lại có thể hỗ trợ, hoặc để sau.',
+        title: 'Dùng Nook như một nhịp ngày.',
+        description: 'Lập phần vừa sức, bảo vệ một Việc chính, duy trì phiên bản tối thiểu, rồi khép ngày.',
+        note: 'Trang chủ luôn chỉ ra bước hữu ích tiếp theo.',
       },
       ready: {
-        title: 'Lập Kế hoạch buổi sáng đầu tiên.',
-        description: 'Bạn sẽ tiếp tục ngay trong ứng dụng thật, nơi thời lượng và kế hoạch hôm nay được lưu trên thiết bị.',
-        note: 'Không dữ liệu nào rời khỏi thiết bị này.',
+        title: 'Bắt đầu bằng ngày thật, không phải bài hướng dẫn.',
+        description: 'Chọn năng lượng và thời gian, thêm một Việc chính trong Hôm nay, rồi thấy việc đó trở về Trang chủ để bắt đầu Tập trung.',
+        note: 'Chưa có gì được tạo trước khi bạn tự chọn.',
       },
     },
+    journey: [
+      { label: 'Lập ngày', detail: 'Sức chứa + một Việc chính' },
+      { label: 'Tập trung', detail: 'Bảo vệ một ý định' },
+      { label: 'Duy trì', detail: 'Làm phiên bản tối thiểu' },
+      { label: 'Khép ngày', detail: 'Giữ lại một dòng hữu ích' },
+    ],
+    concepts: [
+      { term: 'Sức chứa', definition: 'Giới hạn cho hôm nay, không phải mục tiêu cần lấp đầy.' },
+      { term: 'Việc chính', definition: 'Một việc khiến ngày hôm nay trở nên đáng giá.' },
+    ],
+    starter: [
+      { label: 'Mở ngày', detail: 'Chọn năng lượng và thời gian có thể dành.' },
+      { label: 'Thêm một Việc chính', detail: 'Đặt việc quan trọng vào Hôm nay.' },
+      { label: 'Vào Tập trung', detail: 'Dùng Bước nhẹ đang chờ trên Trang chủ.' },
+    ],
   },
   home: {
     title: 'Một ngày có khoảng thở.',
@@ -555,6 +603,7 @@ const vietnameseCopy = {
       },
       tasksPlaced: (count: number) => `Đã xếp ${count} công việc`,
       noPlan: 'Chưa có kế hoạch',
+      noAnchor: 'Đã mở ngày · chưa có Việc chính',
       focusRecorded: (minutes: string) => `Đã ghi ${minutes}`,
       noSession: 'Chưa ghi phiên nào',
       habitsChecked: (checked: number, total: number) => `Đã làm ${checked} trên ${total} thói quen`,
@@ -573,8 +622,12 @@ const vietnameseCopy = {
       shapeTitle: 'Cho ngày hôm nay một hình dáng vừa sức.',
       shapeDetail: 'Đặt giới hạn thời gian và chọn một Việc chính trước khi thêm phần còn lại.',
       morningPlanAction: 'Kế hoạch buổi sáng',
+      chooseAnchorTitle: 'Chọn việc sẽ khiến hôm nay trở nên đáng giá.',
+      chooseAnchorDetail: 'Sức chứa đã rõ. Hãy thêm đúng một Việc chính trong Hôm nay trước phần còn lại.',
+      addAnchorAction: 'Thêm Việc chính',
       anchorDetail: (category: string, minutes: string) => `${category} · ${minutes} · Việc chính hôm nay`,
       focusAnchorAction: 'Tập trung vào Việc chính',
+      anchorReady: 'Kế hoạch đầu tiên đã sẵn sàng. Đây là cách Nook biến Việc chính thành bước tiếp theo.',
       chooseTaskTitle: 'Chọn công việc hữu ích tiếp theo.',
       remainingTasks: (count: number) => `Còn ${count} công việc và không còn Việc chính nào chưa xong.`,
       reviewTodayAction: 'Xem Hôm nay',
@@ -616,6 +669,11 @@ const vietnameseCopy = {
       minutes: 'Số phút',
       lane: 'Vai trò',
       addTask: 'Thêm công việc',
+    },
+    firstAnchor: {
+      title: 'Bắt đầu bằng một Việc chính.',
+      description: 'Đặt tên cho việc sẽ khiến hôm nay trở nên đáng giá và ước lượng thật lòng. Việc Hỗ trợ và Tùy chọn có thể thêm sau.',
+      laneGuide: 'Việc chính dẫn ngày. Hỗ trợ giúp việc đó. Tùy chọn có thể chờ.',
     },
     lanes: {
       anchor: {
@@ -866,11 +924,15 @@ const vietnameseCopy = {
     readError: 'Không thể đọc dữ liệu đã lưu. Dữ liệu vẫn được giữ nguyên; hãy nhập bản sao lưu hoặc đặt lại để tiếp tục lưu.',
     saveError: 'Không thể lưu trên thiết bị này. Hãy giữ thẻ này mở và xuất một bản sao lưu.',
     focusComplete: 'Phiên tập trung đã hoàn thành. Số phút thực tế đã được ghi vào nhịp của bạn.',
-    anchorSet: 'Đã đặt Việc chính. Việc chính trước đó được chuyển sang Hỗ trợ.',
+    anchorSet: (movedPrevious: boolean) => movedPrevious
+      ? 'Đã đặt Việc chính. Việc chính trước đó được chuyển sang Hỗ trợ.'
+      : 'Đã đặt Việc chính cho hôm nay.',
+    anchorReady: 'Việc chính giờ là Bước nhẹ tiếp theo trên Trang chủ.',
     taskAdded: 'Đã thêm công việc vào hôm nay.',
     taskRestored: 'Đã khôi phục công việc.',
     taskRemoved: 'Đã xóa công việc. Bạn có thể hoàn tác trong giây lát.',
     morningSaved: 'Đã lưu kế hoạch buổi sáng trên thiết bị này.',
+    morningNextAnchor: 'Đã mở ngày. Tiếp theo, hãy thêm một Việc chính.',
     dayClosed: 'Hôm nay đã khép lại. Không còn gì cần tối ưu thêm.',
     habitAdded: 'Đã thêm thói quen cùng phiên bản tối thiểu.',
     alreadyFits: 'Hôm nay đã vừa với sức chứa bạn đặt.',

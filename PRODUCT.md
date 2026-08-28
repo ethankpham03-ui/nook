@@ -55,10 +55,15 @@ The primary hash-backed navigation and its order are fixed:
 ## First Run, Language, and Motion
 
 - A fresh installation opens with a branded Nook launch moment, then a
-  three-step, skippable introduction. Step one chooses **English** or
-  **Tiếng Việt**; English is the default.
-- Completing the final step opens the real Morning Plan. Skipping completes
-  onboarding without changing or inventing daily data.
+  three-step, skippable introduction. Step one states Nook's daily value and
+  chooses **English** or **Tiếng Việt**; English is the default. The remaining
+  steps explain the Plan → Focus → Tend → Close loop and the first three real
+  actions without creating sample activity.
+- Completing the final step opens the real Morning Plan. On the first-run
+  handoff, saving that plan moves to Today's Anchor capture; adding the Anchor
+  returns to Home, where it becomes the next quiet move into Focus. The timer
+  never starts automatically. Skipping completes onboarding without changing
+  or inventing daily data.
 - The selected language applies to the full interface, including controls,
   dialogs, accessibility labels, dates, numbers, and plural forms. The choice
   is stored locally and can be changed at any time in Settings.

@@ -33,8 +33,11 @@ fixed order **Today – Habits – Home – Focus – Notes**, with Home centere
 - **Notes:** one Markdown-friendly note per date, date navigation, archive,
   search, and autosave on this device.
 - New users see a short branded launch followed by a skippable three-step
-  introduction. Language is chosen first; completing the flow opens Morning
-  Plan, and Settings can replay it without changing current data.
+  introduction. It states Nook's daily loop, keeps language choice explicit,
+  then opens the real Morning Plan. Saving that plan guides a new user to add
+  one Anchor in Today; the Anchor returns to Home as the next move into Focus.
+  No sample activity is created, the timer never auto-starts, and Settings can
+  replay the introduction without changing current data.
 - Light and dark themes, accessible dialogs and keyboard navigation, responsive
   mobile and desktop layouts, `Ctrl/⌘ + K` quick actions, and an offline
   production app shell after the first visit.

@@ -7,9 +7,9 @@ import { ShieldCheck } from '@phosphor-icons/react/ShieldCheck';
 import { SunHorizon } from '@phosphor-icons/react/SunHorizon';
 import { Target } from '@phosphor-icons/react/Target';
 import { X } from '@phosphor-icons/react/X';
-import type { ReactNode } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { getNookCopy } from '../lib/i18n';
+import type { NookCopy } from '../lib/i18n';
 import type { Language } from '../lib/nook-state';
 
 export type NookOnboardingResult = {
@@ -30,11 +30,55 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
   )).filter((element) => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
 }
 
-function StepVisual({ children }: { children: ReactNode }) {
+function StepVisual({ copy, step }: { copy: NookCopy['onboarding']; step: number }) {
+  if (step === 1) {
+    return (
+      <div className="v3-onboarding__visual" data-variant="journey">
+        <ol className="v3-onboarding__journey" aria-label={copy.journeyLabel}>
+          {copy.journey.map((item, index) => (
+            <li className="v3-onboarding__journey-item" key={item.label}>
+              <span className="v3-onboarding__journey-icon" aria-hidden="true">
+                {index === 0
+                  ? <Target size={22} weight="bold" />
+                  : index === 1
+                    ? <SunHorizon size={22} weight="bold" />
+                    : index === 2
+                      ? <ShieldCheck size={22} weight="bold" />
+                      : <CheckCircle size={22} weight="bold" />}
+              </span>
+              <strong>{item.label}</strong>
+              <span>{item.detail}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  if (step === 2) {
+    return (
+      <div className="v3-onboarding__visual" data-variant="starter">
+        <ol className="v3-onboarding__starter" aria-label={copy.starterLabel}>
+          {copy.starter.map((item, index) => (
+            <li key={item.label}>
+              <span>{index + 1}</span>
+              <div>
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
   return (
     <div className="v3-onboarding__visual" aria-hidden="true">
       <span className="v3-onboarding__visual-orbit" />
-      <span className="v3-onboarding__visual-mark">{children}</span>
+      <span className="v3-onboarding__visual-mark">
+        <SunHorizon size={48} weight="bold" />
+      </span>
     </div>
   );
 }
@@ -106,19 +150,14 @@ export function NookOnboarding({
 
   const content = step === 0
     ? {
-        title: copy.languageLabel,
-        description: copy.steps.welcome.description,
-        note: copy.steps.welcome.note,
-        visual: <SunHorizon size={48} weight="bold" />,
+        ...copy.steps.welcome,
       }
     : step === 1
       ? {
           ...copy.steps.shape,
-          visual: <Target size={48} weight="bold" />,
         }
       : {
           ...copy.steps.ready,
-          visual: <CheckCircle size={48} weight="bold" />,
         };
 
   const stepStatus = copy.stepStatus(step + 1, TOTAL_STEPS);
@@ -185,34 +224,47 @@ export function NookOnboarding({
           <span aria-hidden="true">{stepStatus}</span>
         </div>
 
-        <div className="v3-onboarding__body" aria-live="polite" aria-atomic="true">
-          <StepVisual>{content.visual}</StepVisual>
+        <div className="v3-onboarding__body">
+          <StepVisual copy={copy} step={step} />
           <div className="v3-onboarding__copy">
             <h1 ref={titleRef} id={titleId} tabIndex={-1}>{content.title}</h1>
             <p id={descriptionId}>{content.description}</p>
             {step === 0 && (
-              <div
-                className="v3-onboarding__language-choices"
-                role="group"
-                aria-label={copy.languageLabel}
-              >
-                {(['en', 'vi'] as const).map((option) => (
-                  <button
-                    key={option}
-                    ref={option === language ? selectedLanguageRef : undefined}
-                    className="v3-onboarding__language-choice"
-                    type="button"
-                    aria-pressed={language === option}
-                    data-active={language === option ? 'true' : 'false'}
-                    lang={option}
-                    onClick={() => onLanguageChange(option)}
-                  >
-                    <span className="v3-onboarding__language-code">{option.toUpperCase()}</span>
-                    <strong>{copy.languageNames[option]}</strong>
-                    <CheckCircle size={20} weight={language === option ? 'fill' : 'regular'} aria-hidden="true" />
-                  </button>
-                ))}
+              <div className="v3-onboarding__language-field">
+                <span className="v3-onboarding__language-label">{copy.languageLabel}</span>
+                <div
+                  className="v3-onboarding__language-choices"
+                  role="group"
+                  aria-label={copy.languageLabel}
+                >
+                  {(['en', 'vi'] as const).map((option) => (
+                    <button
+                      key={option}
+                      ref={option === language ? selectedLanguageRef : undefined}
+                      className="v3-onboarding__language-choice"
+                      type="button"
+                      aria-pressed={language === option}
+                      data-active={language === option ? 'true' : 'false'}
+                      lang={option}
+                      onClick={() => onLanguageChange(option)}
+                    >
+                      <span className="v3-onboarding__language-code">{option.toUpperCase()}</span>
+                      <strong>{copy.languageNames[option]}</strong>
+                      <CheckCircle size={20} weight={language === option ? 'fill' : 'regular'} aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+            {step === 1 && (
+              <dl className="v3-onboarding__concepts">
+                {copy.concepts.map((concept) => (
+                  <div key={concept.term}>
+                    <dt>{concept.term}</dt>
+                    <dd>{concept.definition}</dd>
+                  </div>
+                ))}
+              </dl>
             )}
             <p className="v3-onboarding__note" id={noteId}>
               <ShieldCheck size={19} weight="bold" aria-hidden="true" />

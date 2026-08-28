@@ -69,6 +69,7 @@ const QUICK_ACTION_IDS = ['morning', 'today', 'focus', 'close', 'backup'] as con
 type QuickActionId = (typeof QUICK_ACTION_IDS)[number];
 
 type SaveStatus = 'loading' | 'saving' | 'saved' | 'error';
+type ActivationStep = 'idle' | 'morning' | 'anchor' | 'home';
 
 type UndoState = {
   label: string;
@@ -222,6 +223,7 @@ export default function NookPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<NookSnapshot | null>(null);
+  const [activationStep, setActivationStep] = useState<ActivationStep>('idle');
   const [tabDirection, setTabDirection] = useState<'backward' | 'forward' | 'neutral'>('neutral');
   const [launchPhase, setLaunchPhase] = useState<'active' | 'leaving'>('active');
   const [launchVisible, setLaunchVisible] = useState(true);
@@ -505,6 +507,9 @@ export default function NookPage() {
     const title = boundedText(input.title.trim(), NOOK_INPUT_LIMITS.taskTitle);
     const category = boundedText(input.category.trim(), NOOK_INPUT_LIMITS.taskCategory);
     if (!title) return;
+    const replacesAnchor = input.lane === 'anchor' && readySnapshot.tasks.some((task) => (
+      task.dayKey === todayKey && task.lane === 'anchor' && !task.done
+    ));
     setSnapshot((current) => {
       if (!current) return current;
       const tasks = input.lane === 'anchor'
@@ -532,7 +537,13 @@ export default function NookPage() {
         selectedTaskId: taskId,
       };
     });
-    notify(input.lane === 'anchor' ? copy.messages.anchorSet : copy.messages.taskAdded);
+    if (activationStep === 'anchor' && input.lane === 'anchor') {
+      setActivationStep('home');
+      activateTab('home');
+      notify(copy.messages.anchorReady);
+      return;
+    }
+    notify(input.lane === 'anchor' ? copy.messages.anchorSet(replacesAnchor) : copy.messages.taskAdded);
   }
 
   function toggleTask(taskId: string) {
@@ -582,6 +593,7 @@ export default function NookPage() {
         intention: current.focusTimer.intention.trim() || task?.title || '',
       },
     } : current);
+    setActivationStep('idle');
     activateTab('focus');
   }
 
@@ -594,6 +606,7 @@ export default function NookPage() {
   }
 
   function submitMorningPlan(values: MorningPlanValues) {
+    const continuesActivation = activationStep === 'morning';
     const nowIso = new Date().toISOString();
     setSnapshot((current) => current
       ? upsertDailyRecord(current, todayKey, {
@@ -603,7 +616,13 @@ export default function NookPage() {
       }, nowIso)
       : current);
     setMorningPlanOpen(false);
-    notify(copy.messages.morningSaved);
+    if (continuesActivation) {
+      setActivationStep('anchor');
+      activateTab('today');
+      notify(copy.messages.morningNextAnchor);
+    } else {
+      notify(copy.messages.morningSaved);
+    }
   }
 
   function submitCloseDay(values: CloseDayValues) {
@@ -902,20 +921,25 @@ export default function NookPage() {
   }
 
   function completeOnboarding({ openMorningPlan }: { openMorningPlan: boolean }) {
+    const shouldGuideFirstPlan = openMorningPlan
+      && !dailyRecord?.openedAt
+      && !readySnapshot.tasks.some((task) => task.dayKey === todayKey);
     setSnapshot((current) => current ? {
       ...current,
       settings: { ...current.settings, onboardingCompleted: true },
     } : current);
+    setActivationStep(shouldGuideFirstPlan ? 'morning' : 'idle');
     if (openMorningPlan) setMorningPlanOpen(true);
     else {
       window.requestAnimationFrame(() => {
-        document.getElementById('nook-settings-trigger')?.focus();
+        document.getElementById(`v2-dock-tab-${activeTab}`)?.focus();
       });
     }
   }
 
   function replayOnboarding() {
     setBackupOpen(false);
+    setActivationStep('idle');
     setSnapshot((current) => current ? {
       ...current,
       settings: { ...current.settings, onboardingCompleted: false },
@@ -983,6 +1007,7 @@ export default function NookPage() {
                   habits={snapshot.habits}
                   habitLogs={snapshot.habitLogs}
                   focusSessions={snapshot.focusSessions}
+                  guideNextMove={activationStep === 'home'}
                   notes={snapshot.notes}
                   onNavigate={activateTab}
                   onFocusTask={focusTask}
@@ -996,6 +1021,7 @@ export default function NookPage() {
                   <TodayView
                     dayKey={todayKey}
                     dailyRecord={dailyRecord}
+                    guideAnchor={activationStep === 'anchor'}
                     tasks={snapshot.tasks}
                     onAddTask={addTask}
                     onToggleTask={toggleTask}
@@ -1166,7 +1192,10 @@ export default function NookPage() {
       <MorningPlanDialog
         open={morningPlanOpen}
         record={dailyRecord ?? createDailyRecord(todayKey)}
-        onClose={() => setMorningPlanOpen(false)}
+        onClose={() => {
+          setMorningPlanOpen(false);
+          if (activationStep === 'morning') setActivationStep('idle');
+        }}
         onSubmit={submitMorningPlan}
       />
       <CloseDayDialog

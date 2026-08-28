@@ -239,9 +239,14 @@ every breakpoint, including while it is dragged between destinations.
 - A cold launch opens Nook's bundled mark from a narrow charcoal aperture,
   followed by the wordmark and localized tagline. It is a brief brand cue, not
   a simulated network-loading delay or progress claim.
-- First-run onboarding is a focused three-step dialog. Language choice leads
-  step one, Skip stays available throughout, and the final chartreuse action
-  opens Morning Plan.
+- First-run onboarding is a focused three-step dialog. Language choice follows
+  a clear value statement in step one, Skip stays available throughout, and
+  the final chartreuse action opens Morning Plan. A compact, accessible loop
+  diagram explains Plan, Focus, Tend, and Close without simulated data.
+- The first-run handoff continues through real surfaces: Morning Plan opens
+  Today with the Anchor field focused; adding that Anchor returns to Home and
+  makes it the next quiet move into Focus. This cue uses real user input and
+  never starts the timer automatically.
 - English and Tiếng Việt remain visible as explicit choices. Replaying the
   introduction from Settings preserves current data.
 - Reduced motion removes aperture and directional movement, retaining only a

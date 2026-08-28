@@ -20,7 +20,7 @@ import { Sparkle } from '@phosphor-icons/react/Sparkle';
 import { Timer } from '@phosphor-icons/react/Timer';
 import { Trash } from '@phosphor-icons/react/Trash';
 import type { FormEvent, ReactNode } from 'react';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNookI18n } from '../lib/i18n';
 import type { Language, NookCopy } from '../lib/i18n';
 import { NOOK_INPUT_LIMITS } from '../lib/nook-state';
@@ -92,6 +92,7 @@ export interface HomeViewProps {
   dailyRecords: readonly DailyRecord[];
   dayKey: string;
   focusSessions: readonly FocusSession[];
+  guideNextMove?: boolean;
   habitLogs: readonly HabitLog[];
   habits: readonly Habit[];
   notes: readonly NoteEntry[];
@@ -105,6 +106,7 @@ export interface HomeViewProps {
 export interface TodayViewProps {
   dailyRecord?: DailyRecord;
   dayKey: string;
+  guideAnchor?: boolean;
   onAddTask: (task: NewTaskInput) => void;
   onChangeTaskLane: (taskId: string, lane: TaskLane) => void;
   onDeleteTask: (taskId: string) => void;
@@ -188,10 +190,6 @@ function countWords(value: string) {
   return trimmed ? trimmed.split(/\s+/).length : 0;
 }
 
-function hasNoteContent(note?: NoteEntry) {
-  return Boolean(note && meaningfulMarkdown(note.content));
-}
-
 function logValueFor(habitLogs: readonly HabitLog[], habitId: string, dayKey: string) {
   return habitLogs.reduce((value, log) => (
     log.habitId === habitId && log.dayKey === dayKey ? Math.max(value, log.value) : value
@@ -255,6 +253,7 @@ export function HomeView({
   dailyRecords,
   dayKey,
   focusSessions,
+  guideNextMove = false,
   habitLogs,
   habits,
   notes,
@@ -265,25 +264,39 @@ export function HomeView({
   tasks,
 }: HomeViewProps) {
   const { copy, formatDayKey, formatMinutes, formatNumber } = useNookI18n();
+  const nextMoveActionRef = useRef<HTMLButtonElement>(null);
   const todayTasks = tasks.filter((task) => task.dayKey === dayKey);
   const pendingTasks = todayTasks.filter((task) => !task.done);
   const pendingAnchor = pendingTasks.find((task) => task.lane === ('anchor' as TaskLane));
   const todayRecord = dailyRecords.find((record) => record.dayKey === dayKey);
-  const todayNote = notes.find((note) => note.dayKey === dayKey);
   const activeHabits = habits.filter((habit) => !habit.archivedAt);
   const todayFocusMinutes = focusSessions
     .filter((session) => session.dayKey === dayKey)
     .reduce((total, session) => total + Math.max(0, session.actualMinutes), 0);
   const habitsCheckedToday = activeHabits.filter((habit) => logValueFor(habitLogs, habit.id, dayKey) > 0).length;
-  const hasMorningPlan = Boolean(todayRecord?.openedAt) || todayTasks.length > 0;
-  const hasReflection = Boolean(todayRecord?.closedAt) || hasNoteContent(todayNote);
+  const hasOpenedDay = Boolean(todayRecord?.openedAt);
+  const hasMorningPlan = hasOpenedDay || todayTasks.length > 0;
+  const hasShapedDay = todayTasks.some((task) => task.lane === ('anchor' as TaskLane));
+  const hasReflection = Boolean(todayRecord?.closedAt);
+
+  useEffect(() => {
+    if (!guideNextMove) return;
+    const frame = window.requestAnimationFrame(() => {
+      nextMoveActionRef.current?.scrollIntoView({ block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [guideNextMove]);
 
   const arcFacts = [
     {
       id: 'plan',
       label: copy.home.arc.stages.shape,
-      complete: hasMorningPlan,
-      detail: todayTasks.length ? copy.home.arc.tasksPlaced(todayTasks.length) : copy.home.arc.noPlan,
+      complete: hasShapedDay,
+      detail: hasShapedDay
+        ? copy.home.arc.tasksPlaced(todayTasks.length)
+        : hasOpenedDay
+          ? copy.home.arc.noAnchor
+          : copy.home.arc.noPlan,
     },
     {
       id: 'focus',
@@ -305,11 +318,7 @@ export function HomeView({
       id: 'close',
       label: copy.home.arc.stages.close,
       complete: hasReflection,
-      detail: todayRecord?.closedAt
-        ? copy.home.dayClosed
-        : hasNoteContent(todayNote)
-          ? copy.home.arc.noteWaiting
-          : copy.home.arc.noClosingNote,
+      detail: todayRecord?.closedAt ? copy.home.dayClosed : copy.home.arc.noClosingNote,
     },
   ];
   const firstOpenStage = arcFacts.findIndex((stage) => !stage.complete);
@@ -333,6 +342,11 @@ export function HomeView({
     quietMoveDetail = copy.home.quietMove.shapeDetail;
     quietMoveAction = copy.home.quietMove.morningPlanAction;
     handleQuietMove = onOpenMorningPlan;
+  } else if (!pendingAnchor && todayTasks.length === 0) {
+    quietMoveTitle = copy.home.quietMove.chooseAnchorTitle;
+    quietMoveDetail = copy.home.quietMove.chooseAnchorDetail;
+    quietMoveAction = copy.home.quietMove.addAnchorAction;
+    handleQuietMove = () => onNavigate('today' as Tab);
   } else if (pendingAnchor) {
     quietMoveTitle = pendingAnchor.title;
     quietMoveDetail = copy.home.quietMove.anchorDetail(
@@ -354,11 +368,6 @@ export function HomeView({
     quietMoveDetail = copy.home.quietMove.tendDetail;
     quietMoveAction = copy.home.quietMove.openHabitsAction;
     handleQuietMove = () => onNavigate('habits' as Tab);
-  } else if (!hasNoteContent(todayNote)) {
-    quietMoveTitle = copy.home.quietMove.noteTitle;
-    quietMoveDetail = copy.home.quietMove.noteDetail;
-    quietMoveAction = copy.home.quietMove.openNoteAction;
-    handleQuietMove = () => onNavigate('notes' as Tab);
   }
 
   const weekKeys = lastSevenDayKeys(dayKey);
@@ -451,14 +460,28 @@ export function HomeView({
           </ol>
         </section>
 
-        <section className="v2-quiet-move" aria-labelledby="v2-quiet-move-title">
+        <section
+          className="v2-quiet-move"
+          aria-labelledby="v2-quiet-move-title"
+          data-guided={guideNextMove && pendingAnchor ? 'true' : undefined}
+        >
           <div className="v2-quiet-move__icon" aria-hidden="true">
             <ArrowRight size={22} weight="bold" />
           </div>
           <p className="v2-quiet-move__label">{copy.home.quietMove.label}</p>
           <h2 id="v2-quiet-move-title" className="v2-quiet-move__title">{quietMoveTitle}</h2>
           <p className="v2-quiet-move__description">{quietMoveDetail}</p>
-          <button type="button" className="v2-button v2-button--focus" onClick={handleQuietMove}>
+          {guideNextMove && pendingAnchor && (
+            <p className="v3-activation-cue" role="status">{copy.home.quietMove.anchorReady}</p>
+          )}
+          <button
+            ref={nextMoveActionRef}
+            id="nook-next-move-action"
+            type="button"
+            className="v2-button v2-button--focus"
+            onClick={handleQuietMove}
+            autoFocus={guideNextMove && Boolean(pendingAnchor)}
+          >
             {quietMoveAction}
             <ArrowRight size={17} weight="bold" aria-hidden="true" />
           </button>
@@ -515,6 +538,7 @@ export function HomeView({
 export function TodayView({
   dailyRecord,
   dayKey,
+  guideAnchor = false,
   onAddTask,
   onChangeTaskLane,
   onDeleteTask,
@@ -530,6 +554,8 @@ export function TodayView({
   const minutesId = useId();
   const laneId = useId();
   const capacityId = useId();
+  const firstAnchorId = useId();
+  const taskTitleRef = useRef<HTMLInputElement>(null);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskCategory, setTaskCategory] = useState('');
   const [taskMinutes, setTaskMinutes] = useState(25);
@@ -542,6 +568,12 @@ export function TodayView({
     .reduce((total, task) => total + Math.max(0, task.minutes), 0);
   const capacityMinutes = Math.max(0, dailyRecord?.capacityMinutes ?? 0);
   const overCapacityBy = capacityMinutes ? Math.max(0, plannedMinutes - capacityMinutes) : 0;
+
+  useEffect(() => {
+    if (!guideAnchor) return;
+    const frame = window.requestAnimationFrame(() => taskTitleRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [guideAnchor]);
 
   function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -607,21 +639,41 @@ export function TodayView({
         <p className="v2-capacity__completed">{copy.today.capacity.completed(formatMinutes(completedMinutes))}</p>
       </section>
 
-      <form className="v2-quick-capture" onSubmit={submitTask} aria-labelledby="v2-quick-capture-title">
+      <form
+        className="v2-quick-capture"
+        onSubmit={submitTask}
+        aria-labelledby="v2-quick-capture-title"
+        data-first-use={todayTasks.length === 0 ? 'true' : undefined}
+        data-guided={guideAnchor ? 'true' : undefined}
+      >
         <div className="v2-quick-capture__heading">
           <Plus size={20} weight="bold" aria-hidden="true" />
-          <h2 id="v2-quick-capture-title">{copy.today.capture.title}</h2>
+          <div>
+            <h2 id="v2-quick-capture-title">
+              {todayTasks.length === 0 ? copy.today.firstAnchor.title : copy.today.capture.title}
+            </h2>
+            {todayTasks.length === 0 && (
+              <p id={firstAnchorId} className="v3-anchor-guide__description">
+                {copy.today.firstAnchor.description}
+              </p>
+            )}
+          </div>
         </div>
+        {todayTasks.length === 0 && (
+          <p className="v3-anchor-guide__lane-key">{copy.today.firstAnchor.laneGuide}</p>
+        )}
         <div className="v2-quick-capture__fields">
           <div className="v2-field-group v2-field-group--wide">
             <label htmlFor={titleId}>{copy.today.capture.task}</label>
             <input
+              ref={taskTitleRef}
               id={titleId}
               className="v2-field"
               value={taskTitle}
               onChange={(event) => setTaskTitle(event.target.value)}
               maxLength={NOOK_INPUT_LIMITS.taskTitle}
               placeholder={copy.today.capture.taskPlaceholder}
+              aria-describedby={todayTasks.length === 0 ? firstAnchorId : undefined}
               autoComplete="off"
             />
           </div>
