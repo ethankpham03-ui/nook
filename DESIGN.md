@@ -29,18 +29,18 @@ typography:
     lineHeight: 1.04
     letterSpacing: "0.005em"
   title:
-    fontFamily: "Geist, Helvetica Neue, sans-serif"
+    fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.2
     letterSpacing: "-0.035em"
   body:
-    fontFamily: "Geist, Helvetica Neue, sans-serif"
+    fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
     lineHeight: 1.6
   label:
-    fontFamily: "Geist, Helvetica Neue, sans-serif"
+    fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     lineHeight: 1.4
@@ -152,15 +152,17 @@ behave as wayfinding light, not as five competing page themes.
 ## Typography
 
 **Display Font:** 1FTV Wolfers
-**Body Font:** Geist
+**Body Font:** 1FTV Coolvetica Condensed Rg
 **Measured Font:** Geist Mono
 
 Wolfers is reserved for true display moments: primary view titles, onboarding,
 dialog titles, and the quiet next-move statement. It stays at its native 400
 weight with neutral tracking so Vietnamese letters and diacritics retain room.
-The locally bundled full Geist face carries body copy, section headings, labels,
-buttons, and navigation in both English and Vietnamese. Mono belongs to timer
-numerals, Markdown, shortcuts, and measured data.
+The comparison branch uses Coolvetica Condensed for body copy, section headings,
+labels, buttons, and navigation. Its single 400 face keeps Geist immediately
+behind it as a fallback for unsupported Vietnamese glyphs such as `Ỵ`; heavier
+UI roles are synthetic in this branch. Mono belongs to timer numerals, Markdown,
+shortcuts, and measured data.
 
 ## Layout
 
