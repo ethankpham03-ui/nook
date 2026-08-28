@@ -5,7 +5,8 @@
 Nook v2 Wave 1 is a calm, local-first daily operating system for planning,
 habits, deep-focus sessions, and private dated notes. It works without an
 account, cloud database, or tracking and keeps personal data in the current
-browser.
+browser. The complete interface is available in English and Vietnamese, with
+English as the default.
 
 ![Nook social preview](public/og.png)
 
@@ -31,9 +32,14 @@ fixed order **Today – Habits – Home – Focus – Notes**, with Home centere
   pad, session note, and real seven-day completed-session history.
 - **Notes:** one Markdown-friendly note per date, date navigation, archive,
   search, and autosave on this device.
+- New users see a short branded launch followed by a skippable three-step
+  introduction. Language is chosen first; completing the flow opens Morning
+  Plan, and Settings can replay it without changing current data.
 - Light and dark themes, accessible dialogs and keyboard navigation, responsive
   mobile and desktop layouts, `Ctrl/⌘ + K` quick actions, and an offline
   production app shell after the first visit.
+- Direction-aware tab transitions follow the fixed navigation order. Launch,
+  onboarding, and tab motion reduce to brief fades when reduced motion is set.
 
 ## Premium Preview
 
@@ -64,6 +70,10 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+A fresh local profile starts in English and offers English or Tiếng Việt in
+onboarding. The introduction can be skipped. Existing v1 migrations and older
+v2 snapshots are not forced through onboarding.
+
 ## Quality checks
 
 ```bash
@@ -82,18 +92,22 @@ npm run check
 `check` runs linting, TypeScript checks, the schema/migration test suite, and a
 production build in that order. The tests cover deterministic v2 defaults,
 local date helpers, timestamp-based timer behavior, derived metrics, versioned
-backup round trips, safe v1 migration, and malformed-backup rejection.
+backup round trips, safe v1/v2 compatibility for language and onboarding, and
+malformed-backup rejection.
 
 ## Local data, migration, and backup
 
 The current snapshot is stored under `nook.local.v2` in browser storage. It
 contains tasks, habits and dated check-ins, daily records, completed focus
-sessions, current timer state, dated notes, selection, and theme preference.
+sessions, current timer state, dated notes, selection, theme, language, and
+onboarding completion.
 
 When v2 data is absent, Nook reads the legacy `nook.local.v1` shape and safely
 normalizes it into schema v2. Existing task, habit, note, timer, and preference
 values are preserved; undated v1 totals remain marked as legacy instead of
-being expanded into invented daily history.
+being expanded into invented daily history. Legacy users default to English
+and are marked as already onboarded, so the introduction is never replayed
+automatically.
 
 Export creates a validated, versioned `nook-backup` JSON file. Import validates
 and confirms before replacement. Confirmed imports and local resets first save a

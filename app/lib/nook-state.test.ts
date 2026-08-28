@@ -64,7 +64,56 @@ test('DEFAULT_SNAPSHOT creates an honest, deterministic v2 starting point', () =
   assert.equal(snapshot.dailyRecords[0]?.capacityMinutes, 240);
   assert.equal(snapshot.focusTimer.running, false);
   assert.equal(snapshot.focusTimer.remainingSeconds, 25 * 60);
+  assert.deepEqual(snapshot.settings, {
+    dark: false,
+    language: 'en',
+    onboardingCompleted: false,
+  });
   assert.equal(snapshot.legacyWeekMinutes, null);
+});
+
+test('legacy v2 snapshots default to English without replaying onboarding', () => {
+  const legacyV2 = structuredClone(DEFAULT_SNAPSHOT(NOW)) as unknown as {
+    settings: Record<string, unknown>;
+  };
+  delete legacyV2.settings.language;
+  delete legacyV2.settings.onboardingCompleted;
+
+  const parsed = parseV2Snapshot(legacyV2);
+
+  assert.equal(parsed.settings.language, 'en');
+  assert.equal(parsed.settings.onboardingCompleted, true);
+});
+
+test('Vietnamese language and onboarding state survive a backup round-trip', () => {
+  const snapshot = DEFAULT_SNAPSHOT(NOW);
+  snapshot.settings.language = 'vi';
+  snapshot.settings.onboardingCompleted = true;
+
+  const payload = serializeBackup(snapshot, { exportedAt: NOW, pretty: false });
+  const restored = parseBackup(payload);
+
+  assert.equal(restored.settings.language, 'vi');
+  assert.equal(restored.settings.onboardingCompleted, true);
+});
+
+test('parser rejects invalid provided language and onboarding values', () => {
+  const snapshot = DEFAULT_SNAPSHOT(NOW) as unknown as {
+    settings: Record<string, unknown>;
+  };
+  snapshot.settings.language = 'fr';
+
+  assert.throws(
+    () => parseV2Snapshot(snapshot),
+    (error: unknown) => error instanceof NookStateError && error.code === 'invalid-backup',
+  );
+
+  snapshot.settings.language = 'en';
+  snapshot.settings.onboardingCompleted = 'yes';
+  assert.throws(
+    () => parseV2Snapshot(snapshot),
+    (error: unknown) => error instanceof NookStateError && error.code === 'invalid-backup',
+  );
 });
 
 test('day and Monday-based week helpers use local calendar arithmetic', () => {
@@ -259,6 +308,8 @@ test('v1 migration preserves current values without inventing dated history', ()
   assert.equal(migrated.focusTimer.taskId, 'old-task');
   assert.equal(migrated.selectedTaskId, 'old-task');
   assert.equal(migrated.settings.dark, true);
+  assert.equal(migrated.settings.language, 'en');
+  assert.equal(migrated.settings.onboardingCompleted, true);
 });
 
 test('parseBackup recognizes the current nook.local.v1 shape without a version field', () => {

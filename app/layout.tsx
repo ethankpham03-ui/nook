@@ -15,6 +15,28 @@ function getSiteOrigin() {
 const siteOrigin = getSiteOrigin();
 const socialImage = siteOrigin ? new URL('/og.png', siteOrigin).href : undefined;
 
+const appearanceBootstrap = `(() => {
+  try {
+    const raw = localStorage.getItem('nook.local.v2') || localStorage.getItem('nook.local.v1');
+    if (!raw) return;
+    const payload = JSON.parse(raw);
+    const snapshot = payload && typeof payload === 'object' && payload.snapshot ? payload.snapshot : payload;
+    const settings = snapshot && typeof snapshot === 'object' ? snapshot.settings : null;
+    const dark = settings && typeof settings.dark === 'boolean'
+      ? settings.dark
+      : snapshot && typeof snapshot.dark === 'boolean'
+        ? snapshot.dark
+        : null;
+    if (dark !== null) {
+      document.documentElement.dataset.nookTheme = dark ? 'dark' : 'light';
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    }
+    if (settings && (settings.language === 'en' || settings.language === 'vi')) {
+      document.documentElement.lang = settings.language;
+    }
+  } catch {}
+})();`;
+
 export const metadata: Metadata = {
   metadataBase: siteOrigin,
   title: 'Nook — Your day, quietly in focus',
@@ -69,6 +91,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: appearanceBootstrap }} />
+      </head>
       <body className="antialiased">
         {children}
       </body>

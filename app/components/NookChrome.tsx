@@ -2,9 +2,11 @@
 
 import { BatteryLow } from '@phosphor-icons/react/BatteryLow';
 import { BatteryMedium } from '@phosphor-icons/react/BatteryMedium';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
 import { CheckSquareOffset } from '@phosphor-icons/react/CheckSquareOffset';
 import { DownloadSimple } from '@phosphor-icons/react/DownloadSimple';
 import { GearSix } from '@phosphor-icons/react/GearSix';
+import { GlobeHemisphereWest } from '@phosphor-icons/react/GlobeHemisphereWest';
 import { House } from '@phosphor-icons/react/House';
 import { Moon } from '@phosphor-icons/react/Moon';
 import { NotePencil } from '@phosphor-icons/react/NotePencil';
@@ -26,7 +28,8 @@ import type {
   ReactNode,
 } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { DailyRecord, Tab } from '../lib/nook-state';
+import { useNookI18n } from '../lib/i18n';
+import type { DailyRecord, Language, Tab } from '../lib/nook-state';
 
 export type RitualEnergy = NonNullable<DailyRecord['energy']>;
 
@@ -41,40 +44,31 @@ export type CloseDayValues = {
 };
 
 const TAB_ITEMS = [
-  { id: 'today', label: 'Today', icon: CheckSquareOffset },
-  { id: 'habits', label: 'Habits', icon: Repeat },
-  { id: 'home', label: 'Home', icon: House },
-  { id: 'focus', label: 'Focus', icon: Timer },
-  { id: 'notes', label: 'Notes', icon: NotePencil },
+  { id: 'today', icon: CheckSquareOffset },
+  { id: 'habits', icon: Repeat },
+  { id: 'home', icon: House },
+  { id: 'focus', icon: Timer },
+  { id: 'notes', icon: NotePencil },
 ] satisfies ReadonlyArray<{
   id: Tab;
-  label: string;
   icon: typeof House;
 }>;
 
 const ENERGY_OPTIONS = [
   {
     value: 'low',
-    label: 'Low',
-    description: 'Keep the list light.',
     icon: BatteryLow,
   },
   {
     value: 'steady',
-    label: 'Steady',
-    description: 'A measured working rhythm.',
     icon: BatteryMedium,
   },
   {
     value: 'bright',
-    label: 'Bright',
-    description: 'Room for something ambitious.',
     icon: SunHorizon,
   },
 ] satisfies ReadonlyArray<{
   value: RitualEnergy;
-  label: string;
-  description: string;
   icon: typeof BatteryLow;
 }>;
 
@@ -114,7 +108,8 @@ export function NookHeader({
   onToggleTheme,
   onOpenSettings,
 }: NookHeaderProps) {
-  const currentLabel = TAB_ITEMS.find((item) => item.id === activeTab)?.label ?? 'Home';
+  const { copy } = useNookI18n();
+  const currentLabel = copy.nav.labels[activeTab];
 
   return (
     <header className="v2-header">
@@ -122,7 +117,7 @@ export function NookHeader({
         className="v2-brand"
         type="button"
         onClick={onGoHome}
-        aria-label="Open Nook home"
+        aria-label={copy.nav.openHome}
       >
         <Image
           className="v2-brand-mark"
@@ -135,16 +130,16 @@ export function NookHeader({
       </button>
 
       <p className="v2-header-location" aria-live="polite">
-        <span className="v2-header-location-label">Current view</span>
+        <span className="v2-header-location-label">{copy.nav.currentView}</span>
         <span className="v2-header-location-value">{currentLabel}</span>
       </p>
 
-      <div className="v2-header-actions" role="group" aria-label="App controls">
+      <div className="v2-header-actions" role="group" aria-label={copy.nav.appControls}>
         <button
           className="v2-icon-button"
           type="button"
           onClick={onToggleTheme}
-          aria-label={isDark ? 'Use light theme' : 'Use dark theme'}
+          aria-label={isDark ? copy.nav.useLightTheme : copy.nav.useDarkTheme}
           aria-pressed={isDark}
         >
           {isDark
@@ -152,10 +147,11 @@ export function NookHeader({
             : <Moon size={20} weight="bold" aria-hidden="true" />}
         </button>
         <button
+          id="nook-settings-trigger"
           className="v2-icon-button"
           type="button"
           onClick={onOpenSettings}
-          aria-label="Open settings"
+          aria-label={copy.nav.openSettings}
           aria-haspopup="dialog"
         >
           <GearSix size={20} weight="bold" aria-hidden="true" />
@@ -172,6 +168,7 @@ export type NookDockProps = {
 };
 
 export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookDockProps) {
+  const { copy } = useNookI18n();
   const activeIndex = TAB_ITEMS.findIndex((item) => item.id === activeTab);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -256,7 +253,7 @@ export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookD
   }
 
   return (
-    <nav className="v2-dock" aria-label="Nook sections">
+    <nav className="v2-dock" aria-label={copy.nav.sections}>
       <div
         ref={trackRef}
         className="v2-dock-track"
@@ -271,6 +268,7 @@ export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookD
       >
         {TAB_ITEMS.map((item, index) => {
           const TabIcon = item.icon;
+          const label = copy.nav.labels[item.id];
           const isActive = item.id === activeTab;
           const isHome = item.id === 'home';
 
@@ -299,10 +297,10 @@ export function NookDock({ activeTab, onTabChange, focusRunning = false }: NookD
               <span className="v2-dock-icon" aria-hidden="true">
                 <TabIcon size={22} weight="bold" />
               </span>
-              <span className="v2-dock-label">{item.label}</span>
+              <span className="v2-dock-label">{label}</span>
               {item.id === 'focus' && focusRunning ? (
                 <span className="v2-dock-live">
-                  <span className="v2-sr-only">Focus timer is running</span>
+                  <span className="v2-sr-only">{copy.nav.focusTimerRunning}</span>
                 </span>
               ) : null}
             </button>
@@ -318,6 +316,7 @@ type DialogFrameProps = {
   titleId: string;
   descriptionId: string;
   closeLabel: string;
+  className?: string;
   onClose: () => void;
   children: ReactNode;
 };
@@ -384,6 +383,7 @@ function DialogFrame({
   titleId,
   descriptionId,
   closeLabel,
+  className = '',
   onClose,
   children,
 }: DialogFrameProps) {
@@ -399,7 +399,7 @@ function DialogFrame({
     <div className="v2-dialog-backdrop" onPointerDown={closeFromBackdrop}>
       <div
         ref={dialogRef}
-        className="v2-dialog"
+        className={`v2-dialog ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -429,6 +429,7 @@ type EnergyChoicesProps = {
 
 function EnergyChoices({ name, legend, defaultValue }: EnergyChoicesProps) {
   const groupId = useId();
+  const { copy } = useNookI18n();
 
   return (
     <fieldset className="v2-energy-fieldset">
@@ -437,6 +438,7 @@ function EnergyChoices({ name, legend, defaultValue }: EnergyChoicesProps) {
         {ENERGY_OPTIONS.map((option) => {
           const optionId = `${groupId}-${option.value}`;
           const EnergyIcon = option.icon;
+          const optionCopy = copy.dialogs.energy[option.value];
           return (
             <label className="v2-energy-option" htmlFor={optionId} key={option.value}>
               <input
@@ -452,8 +454,8 @@ function EnergyChoices({ name, legend, defaultValue }: EnergyChoicesProps) {
                 <span className="v2-energy-icon" aria-hidden="true">
                   <EnergyIcon size={22} weight="bold" />
                 </span>
-                <span className="v2-energy-label">{option.label}</span>
-                <span className="v2-energy-description">{option.description}</span>
+                <span className="v2-energy-label">{optionCopy.label}</span>
+                <span className="v2-energy-description">{optionCopy.description}</span>
               </span>
             </label>
           );
@@ -478,6 +480,8 @@ export function MorningPlanDialog({
 }: MorningPlanDialogProps) {
   const headingId = useId();
   const descriptionId = useId();
+  const { copy } = useNookI18n();
+  const dialogCopy = copy.dialogs.morning;
 
   function submitMorningPlan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -493,26 +497,26 @@ export function MorningPlanDialog({
       open={open}
       titleId={headingId}
       descriptionId={descriptionId}
-      closeLabel="Close morning plan"
+      closeLabel={dialogCopy.closeLabel}
       onClose={onClose}
     >
       <div className="v2-dialog-heading">
-        <p className="v2-dialog-kicker">Morning plan</p>
-        <h2 className="v2-dialog-title" id={headingId}>Make room for what fits.</h2>
+        <p className="v2-dialog-kicker">{dialogCopy.kicker}</p>
+        <h2 className="v2-dialog-title" id={headingId}>{dialogCopy.title}</h2>
         <p className="v2-dialog-description" id={descriptionId}>
-          Set an honest pace before choosing what belongs in today.
+          {dialogCopy.description}
         </p>
       </div>
 
       <form className="v2-ritual-form" onSubmit={submitMorningPlan}>
         <EnergyChoices
           name="morning-energy"
-          legend="How is your energy?"
+          legend={dialogCopy.energyLegend}
           defaultValue={initialEnergy(record)}
         />
 
         <label className="v2-field" htmlFor={`${headingId}-capacity`}>
-          <span className="v2-field-label">Available focus time</span>
+          <span className="v2-field-label">{dialogCopy.focusTime}</span>
           <span className="v2-number-field">
             <input
               className="v2-number-input"
@@ -526,14 +530,14 @@ export function MorningPlanDialog({
               inputMode="numeric"
               required
             />
-            <span className="v2-number-suffix" aria-hidden="true">minutes</span>
+            <span className="v2-number-suffix" aria-hidden="true">{dialogCopy.minutes}</span>
           </span>
-          <span className="v2-field-hint">A limit, not a target.</span>
+          <span className="v2-field-hint">{dialogCopy.hint}</span>
         </label>
 
         <div className="v2-dialog-actions">
-          <button className="v2-button-secondary" type="button" onClick={onClose}>Not now</button>
-          <button className="v2-button-primary" type="submit">Plan the day</button>
+          <button className="v2-button-secondary" type="button" onClick={onClose}>{dialogCopy.cancel}</button>
+          <button className="v2-button-primary" type="submit">{dialogCopy.submit}</button>
         </div>
       </form>
     </DialogFrame>
@@ -555,6 +559,8 @@ export function CloseDayDialog({
 }: CloseDayDialogProps) {
   const headingId = useId();
   const descriptionId = useId();
+  const { copy } = useNookI18n();
+  const dialogCopy = copy.dialogs.closeDay;
 
   function submitClosingReflection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -572,20 +578,20 @@ export function CloseDayDialog({
       open={open}
       titleId={headingId}
       descriptionId={descriptionId}
-      closeLabel="Close end-of-day reflection"
+      closeLabel={dialogCopy.closeLabel}
       onClose={onClose}
     >
       <div className="v2-dialog-heading">
-        <p className="v2-dialog-kicker">Close the day</p>
-        <h2 className="v2-dialog-title" id={headingId}>Leave the day where it is.</h2>
+        <p className="v2-dialog-kicker">{dialogCopy.kicker}</p>
+        <h2 className="v2-dialog-title" id={headingId}>{dialogCopy.title}</h2>
         <p className="v2-dialog-description" id={descriptionId}>
-          Keep one useful thought. The rest can wait for tomorrow.
+          {dialogCopy.description}
         </p>
       </div>
 
       <form className="v2-ritual-form" onSubmit={submitClosingReflection}>
         <label className="v2-field" htmlFor={`${headingId}-reflection`}>
-          <span className="v2-field-label">Closing reflection</span>
+          <span className="v2-field-label">{dialogCopy.reflection}</span>
           <textarea
             className="v2-textarea"
             id={`${headingId}-reflection`}
@@ -593,20 +599,20 @@ export function CloseDayDialog({
             rows={4}
             maxLength={2000}
             defaultValue={record.closingNote}
-            placeholder="What felt worth carrying forward?"
+            placeholder={dialogCopy.placeholder}
           />
-          <span className="v2-field-hint">Optional and stored only on this device.</span>
+          <span className="v2-field-hint">{dialogCopy.hint}</span>
         </label>
 
         <EnergyChoices
           name="closing-energy"
-          legend="How are you ending the day?"
+          legend={dialogCopy.energyLegend}
           defaultValue={initialClosingEnergy(record)}
         />
 
         <div className="v2-dialog-actions">
-          <button className="v2-button-secondary" type="button" onClick={onClose}>Keep today open</button>
-          <button className="v2-button-primary" type="submit">Close today</button>
+          <button className="v2-button-secondary" type="button" onClick={onClose}>{dialogCopy.cancel}</button>
+          <button className="v2-button-primary" type="submit">{dialogCopy.submit}</button>
         </div>
       </form>
     </DialogFrame>
@@ -614,22 +620,34 @@ export function CloseDayDialog({
 }
 
 export type BackupDialogProps = {
+  language: Language;
   open: boolean;
   onClose: () => void;
   onExport: () => void;
   onImportFile: (file: File) => void | Promise<void>;
+  onLanguageChange: (language: Language) => void;
+  onReplayOnboarding: () => void;
   onReset: () => void;
 };
 
 export function BackupDialog({
+  language,
   open,
   onClose,
   onExport,
   onImportFile,
+  onLanguageChange,
+  onReplayOnboarding,
   onReset,
 }: BackupDialogProps) {
   const headingId = useId();
   const descriptionId = useId();
+  const languageHeadingId = useId();
+  const languageDescriptionId = useId();
+  const replayHeadingId = useId();
+  const backupHeadingId = useId();
+  const { copy } = useNookI18n();
+  const dialogCopy = copy.dialogs.backup;
 
   function importFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -642,62 +660,130 @@ export function BackupDialog({
       open={open}
       titleId={headingId}
       descriptionId={descriptionId}
-      closeLabel="Close backup settings"
+      closeLabel={dialogCopy.closeLabel}
+      className="v3-settings"
       onClose={onClose}
     >
       <div className="v2-dialog-heading">
-        <p className="v2-dialog-kicker">Local backup</p>
-        <h2 className="v2-dialog-title" id={headingId}>Your data stays with you.</h2>
+        <p className="v2-dialog-kicker">{dialogCopy.settingsKicker}</p>
+        <h2 className="v2-dialog-title" id={headingId}>{dialogCopy.settingsTitle}</h2>
         <p className="v2-dialog-description" id={descriptionId}>
-          Nook uses no account or cloud sync. Export and import use a JSON file you control;
-          nothing is uploaded.
+          {dialogCopy.settingsDescription}
         </p>
       </div>
 
-      <div className="v2-privacy-note">
-        <ShieldCheck size={22} weight="bold" aria-hidden="true" />
-        <p>Export a current copy before importing another file or resetting this device.</p>
-      </div>
-
-      <div className="v2-backup-actions">
-        <button className="v2-backup-action" type="button" onClick={onExport}>
-          <span className="v2-backup-action-icon" aria-hidden="true">
-            <DownloadSimple size={22} weight="bold" />
+      <section className="v3-settings__section" aria-labelledby={languageHeadingId}>
+        <div className="v3-settings__section-heading">
+          <span className="v3-settings__section-icon" aria-hidden="true">
+            <GlobeHemisphereWest size={21} weight="bold" />
           </span>
-          <span className="v2-backup-action-copy">
-            <strong>Export backup</strong>
-            <span>Save a private JSON copy.</span>
-          </span>
-        </button>
-
-        <label className="v2-backup-action" htmlFor={`${headingId}-import`}>
-          <span className="v2-backup-action-icon" aria-hidden="true">
-            <UploadSimple size={22} weight="bold" />
-          </span>
-          <span className="v2-backup-action-copy">
-            <strong>Import backup</strong>
-            <span>Choose a Nook JSON file.</span>
-          </span>
-          <input
-            className="v2-file-input"
-            id={`${headingId}-import`}
-            type="file"
-            accept=".json,application/json"
-            onChange={importFile}
-          />
-        </label>
-      </div>
-
-      <div className="v2-reset-zone">
-        <div className="v2-reset-copy">
-          <strong>Start fresh on this device</strong>
-          <span>This removes Nook data here. It cannot be undone without a backup.</span>
+          <div className="v3-settings__section-copy">
+            <h3 id={languageHeadingId}>{dialogCopy.languageTitle}</h3>
+            <p id={languageDescriptionId}>{dialogCopy.languageDescription}</p>
+          </div>
         </div>
-        <button className="v2-button-danger" type="button" onClick={onReset}>
-          <Trash size={18} weight="bold" aria-hidden="true" />
-          Reset local data
+        <div
+          className="v3-settings__language-options"
+          role="group"
+          aria-labelledby={languageHeadingId}
+          aria-describedby={languageDescriptionId}
+        >
+          <button
+            className="v3-settings__language-option"
+            type="button"
+            aria-pressed={language === 'en'}
+            data-active={language === 'en' ? 'true' : 'false'}
+            lang="en"
+            onClick={() => onLanguageChange('en')}
+          >
+            <span aria-hidden="true">EN</span>
+            <strong>{copy.onboarding.languageNames.en}</strong>
+          </button>
+          <button
+            className="v3-settings__language-option"
+            type="button"
+            aria-pressed={language === 'vi'}
+            data-active={language === 'vi' ? 'true' : 'false'}
+            lang="vi"
+            onClick={() => onLanguageChange('vi')}
+          >
+            <span aria-hidden="true">VI</span>
+            <strong>{copy.onboarding.languageNames.vi}</strong>
+          </button>
+        </div>
+      </section>
+
+      <section className="v3-settings__replay" aria-labelledby={replayHeadingId}>
+        <div className="v3-settings__section-heading">
+          <span className="v3-settings__section-icon" aria-hidden="true">
+            <ArrowCounterClockwise size={21} weight="bold" />
+          </span>
+          <div className="v3-settings__section-copy">
+            <h3 id={replayHeadingId}>{dialogCopy.replayTitle}</h3>
+            <p>{dialogCopy.replayDescription}</p>
+          </div>
+        </div>
+        <button
+          className="v2-button-secondary v3-settings__replay-action"
+          type="button"
+          onClick={onReplayOnboarding}
+        >
+          {dialogCopy.replayAction}
         </button>
-      </div>
+      </section>
+
+      <section className="v3-settings__backup" aria-labelledby={backupHeadingId}>
+        <div className="v3-settings__backup-heading">
+          <p className="v2-dialog-kicker">{dialogCopy.kicker}</p>
+          <h3 id={backupHeadingId}>{dialogCopy.title}</h3>
+          <p>{dialogCopy.description}</p>
+        </div>
+
+        <div className="v2-privacy-note">
+          <ShieldCheck size={22} weight="bold" aria-hidden="true" />
+          <p>{dialogCopy.privacyNote}</p>
+        </div>
+
+        <div className="v2-backup-actions">
+          <button className="v2-backup-action" type="button" onClick={onExport}>
+            <span className="v2-backup-action-icon" aria-hidden="true">
+              <DownloadSimple size={22} weight="bold" />
+            </span>
+            <span className="v2-backup-action-copy">
+              <strong>{dialogCopy.exportTitle}</strong>
+              <span>{dialogCopy.exportDescription}</span>
+            </span>
+          </button>
+
+          <label className="v2-backup-action" htmlFor={`${headingId}-import`}>
+            <span className="v2-backup-action-icon" aria-hidden="true">
+              <UploadSimple size={22} weight="bold" />
+            </span>
+            <span className="v2-backup-action-copy">
+              <strong>{dialogCopy.importTitle}</strong>
+              <span>{dialogCopy.importDescription}</span>
+            </span>
+            <input
+              className="v2-file-input"
+              id={`${headingId}-import`}
+              type="file"
+              accept=".json,application/json"
+              onChange={importFile}
+            />
+          </label>
+        </div>
+
+        <div className="v2-reset-zone">
+          <div className="v2-reset-copy">
+            <strong>{dialogCopy.resetTitle}</strong>
+            <span>{dialogCopy.resetDescription}</span>
+          </div>
+          <button className="v2-button-danger" type="button" onClick={onReset}>
+            <Trash size={18} weight="bold" aria-hidden="true" />
+            {dialogCopy.resetAction}
+          </button>
+        </div>
+      </section>
     </DialogFrame>
   );
 }

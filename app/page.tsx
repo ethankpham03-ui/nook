@@ -26,6 +26,9 @@ import {
   type NewTaskInput,
   type NoteTemplateId,
 } from './components/NookViews';
+import { NookLaunch } from './components/NookLaunch';
+import { NookOnboarding } from './components/NookOnboarding';
+import { getNookCopy, NookI18nProvider, useNookI18n } from './lib/i18n';
 import {
   DEFAULT_SNAPSHOT,
   NOOK_INPUT_LIMITS,
@@ -42,6 +45,7 @@ import {
   type EnergyLevel,
   type FocusSession,
   type Habit,
+  type Language,
   type NookSnapshot,
   type NoteEntry,
   type Tab,
@@ -60,21 +64,9 @@ const TAB_META: ReadonlyArray<{ id: Tab; accent: string; wash: string }> = [
   { id: 'notes', accent: '#ffc6a3', wash: '#f7e3d6' },
 ];
 
-const NOTE_TEMPLATE_CONTENT: Record<NoteTemplateId, string> = {
-  'morning-plan': '## Morning plan\n\n**Anchor**\n\n**Support**\n\n**What can wait**\n',
-  'close-day': '## Close the day\n\n**What moved**\n\n**What felt difficult**\n\n**What I can release**\n',
-  'weekly-reflection': '## Weekly reflection\n\n**What had momentum**\n\n**What asked for too much**\n\n**One adjustment for next week**\n',
-};
+const QUICK_ACTION_IDS = ['morning', 'today', 'focus', 'close', 'backup'] as const;
 
-const QUICK_ACTIONS = [
-  { id: 'morning', label: 'Open Morning Plan' },
-  { id: 'today', label: 'Review Today' },
-  { id: 'focus', label: 'Start a Focus block' },
-  { id: 'close', label: 'Close the Day' },
-  { id: 'backup', label: 'Backup & privacy' },
-] as const;
-
-type QuickActionId = (typeof QUICK_ACTIONS)[number]['id'];
+type QuickActionId = (typeof QUICK_ACTION_IDS)[number];
 
 type SaveStatus = 'loading' | 'saving' | 'saved' | 'error';
 
@@ -146,6 +138,7 @@ function ensureCurrentDay(snapshot: NookSnapshot, dayKey: string, nowIso: string
 }
 
 function ModalFrame({ children, descriptionId, labelId, onClose }: ModalFrameProps) {
+  const { copy } = useNookI18n();
   const frameRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -197,7 +190,13 @@ function ModalFrame({ children, descriptionId, labelId, onClose }: ModalFramePro
         aria-describedby={descriptionId}
         tabIndex={-1}
       >
-        <button ref={closeRef} className="v2-dialog-close" type="button" onClick={onClose} aria-label="Close dialog">
+        <button
+          ref={closeRef}
+          className="v2-dialog-close"
+          type="button"
+          onClick={onClose}
+          aria-label={copy.common.actions.closeDialog}
+        >
           <X size={20} weight="bold" aria-hidden="true" />
         </button>
         {children}
@@ -223,12 +222,22 @@ export default function NookPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<NookSnapshot | null>(null);
+  const [tabDirection, setTabDirection] = useState<'backward' | 'forward' | 'neutral'>('neutral');
+  const [launchPhase, setLaunchPhase] = useState<'active' | 'leaving'>('active');
+  const [launchVisible, setLaunchVisible] = useState(true);
+  const launchStartedAtRef = useRef<number | null>(null);
+  const onboardingOpen = Boolean(
+    hydrated && snapshot && !snapshot.settings.onboardingCompleted && !launchVisible,
+  );
   const dialogOpen = morningPlanOpen || closeDayOpen || backupOpen || quickOpen
-    || resetConfirmOpen || pendingImport !== null;
+    || resetConfirmOpen || pendingImport !== null || onboardingOpen;
+  const backgroundBlocked = dialogOpen || launchVisible;
   const scrollRef = useRef<HTMLElement>(null);
   const completedTimerRef = useRef<string | null>(null);
   const storageErrorShownRef = useRef(false);
   const storageRecoveryBlockedRef = useRef(false);
+  const language = snapshot?.settings.language ?? 'en';
+  const copy = getNookCopy(language);
 
   const notify = useCallback((message: string, undo: UndoState | null = null) => {
     setToast(message);
@@ -236,9 +245,19 @@ export default function NookPage() {
   }, []);
 
   const activateTab = useCallback((tab: Tab) => {
-    setActiveTab(tab);
+    setActiveTab((current) => {
+      const currentIndex = TAB_META.findIndex((item) => item.id === current);
+      const nextIndex = TAB_META.findIndex((item) => item.id === tab);
+      setTabDirection(nextIndex === currentIndex ? 'neutral' : nextIndex > currentIndex ? 'forward' : 'backward');
+      return tab;
+    });
     if (window.location.hash !== `#${tab}`) window.history.pushState(null, '', `#${tab}`);
-    window.requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }));
+    const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    window.requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 0, behavior: scrollBehavior }));
+  }, []);
+
+  useEffect(() => {
+    launchStartedAtRef.current = performance.now();
   }, []);
 
   useEffect(() => {
@@ -254,11 +273,23 @@ export default function NookPage() {
         const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
         if (currentRaw) next = parseBackup(currentRaw, { now });
         else if (legacyRaw) next = parseBackup(legacyRaw, { now });
-        else next = { ...next, settings: { dark: window.matchMedia('(prefers-color-scheme: dark)').matches } };
+        else next = {
+          ...next,
+          settings: {
+            ...next.settings,
+            dark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+          },
+        };
       } catch {
         readError = true;
       }
 
+      if (readError) {
+        next = {
+          ...next,
+          settings: { ...next.settings, onboardingCompleted: true },
+        };
+      }
       storageRecoveryBlockedRef.current = readError;
       next = ensureCurrentDay(next, dayKey, nowIso);
       setSnapshot(next);
@@ -266,7 +297,7 @@ export default function NookPage() {
       setSelectedNoteDay(dayKey);
       setNowMs(now.getTime());
       setSaveStatus(readError ? 'error' : 'saved');
-      if (readError) notify('Saved data could not be read. It is preserved; import a backup or reset to resume saving.');
+      if (readError) notify(getNookCopy(next.settings.language).messages.readError);
 
       const appleNavigator = navigator as Navigator & { standalone?: boolean };
       setStandalone(
@@ -287,9 +318,38 @@ export default function NookPage() {
   }, [notify]);
 
   useEffect(() => {
+    if (!hydrated || !launchVisible) return;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const elapsed = launchStartedAtRef.current === null
+      ? 0
+      : performance.now() - launchStartedAtRef.current;
+    const waitForAuthoredMoment = Math.max(0, (reducedMotion ? 0 : 720) - elapsed);
+    let finishTimer = 0;
+    const leaveTimer = window.setTimeout(() => {
+      setLaunchPhase('leaving');
+      finishTimer = window.setTimeout(
+        () => setLaunchVisible(false),
+        reducedMotion ? 150 : 270,
+      );
+    }, waitForAuthoredMoment);
+    return () => {
+      window.clearTimeout(leaveTimer);
+      window.clearTimeout(finishTimer);
+    };
+  }, [hydrated, launchVisible]);
+
+  useEffect(() => {
     const syncFromHash = () => {
       const hash = window.location.hash.slice(1) as Tab;
-      if (TAB_META.some((tab) => tab.id === hash)) setActiveTab(hash);
+      if (TAB_META.some((tab) => tab.id === hash)) {
+        setActiveTab((current) => {
+          if (current === hash) return current;
+          const currentIndex = TAB_META.findIndex((item) => item.id === current);
+          const nextIndex = TAB_META.findIndex((item) => item.id === hash);
+          setTabDirection(nextIndex > currentIndex ? 'forward' : 'backward');
+          return hash;
+        });
+      }
     };
     window.addEventListener('popstate', syncFromHash);
     window.addEventListener('hashchange', syncFromHash);
@@ -312,7 +372,7 @@ export default function NookPage() {
         setSaveStatus('error');
         if (!storageErrorShownRef.current) {
           storageErrorShownRef.current = true;
-          notify('Could not save on this device. Keep this tab open and export a backup.');
+          notify(copy.messages.saveError);
         }
       }
     }, 260);
@@ -320,11 +380,13 @@ export default function NookPage() {
       window.clearTimeout(markSaving);
       window.clearTimeout(save);
     };
-  }, [hydrated, notify, snapshot]);
+  }, [copy.messages.saveError, hydrated, notify, snapshot]);
 
   useEffect(() => {
     if (!snapshot) return;
     document.documentElement.style.colorScheme = snapshot.settings.dark ? 'dark' : 'light';
+    document.documentElement.dataset.nookTheme = snapshot.settings.dark ? 'dark' : 'light';
+    document.documentElement.lang = snapshot.settings.language;
   }, [snapshot]);
 
   useEffect(() => {
@@ -380,20 +442,20 @@ export default function NookPage() {
         focusTimer: createFocusTimer(timer.presetMinutes),
       };
     });
-    notify('Focus session complete. The real minutes are in your rhythm.');
-  }, [displayedRemaining, notify, snapshot?.focusTimer.endsAt, snapshot?.focusTimer.running]);
+    notify(copy.messages.focusComplete);
+  }, [copy.messages.focusComplete, displayedRemaining, notify, snapshot?.focusTimer.endsAt, snapshot?.focusTimer.running]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        if (dialogOpen && !quickOpen) return;
+        if (backgroundBlocked && !quickOpen) return;
         setQuickOpen((open) => !open);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dialogOpen, quickOpen]);
+  }, [backgroundBlocked, quickOpen]);
 
   useEffect(() => {
     if (!toast) return;
@@ -418,12 +480,11 @@ export default function NookPage() {
 
   if (!snapshot || !todayKey || !hydrated) {
     return (
-      <main className="nook-app v2-app" style={appStyle}>
-        <div className="v2-loading" role="status">
-          <span className="v2-loading__mark" aria-hidden="true" />
-          <p>Opening your local Nook…</p>
-        </div>
-      </main>
+      <NookI18nProvider language={language}>
+        <main className="nook-app v2-app" style={appStyle}>
+          {launchVisible && <NookLaunch language={language} phase={launchPhase} ready={false} />}
+        </main>
+      </NookI18nProvider>
     );
   }
 
@@ -442,7 +503,7 @@ export default function NookPage() {
     const nowIso = new Date().toISOString();
     const taskId = uid('task');
     const title = boundedText(input.title.trim(), NOOK_INPUT_LIMITS.taskTitle);
-    const category = boundedText(input.category.trim() || 'Personal', NOOK_INPUT_LIMITS.taskCategory);
+    const category = boundedText(input.category.trim(), NOOK_INPUT_LIMITS.taskCategory);
     if (!title) return;
     setSnapshot((current) => {
       if (!current) return current;
@@ -471,7 +532,7 @@ export default function NookPage() {
         selectedTaskId: taskId,
       };
     });
-    notify(input.lane === 'anchor' ? 'Anchor set. Previous anchor moved to Support.' : 'Task added to today.');
+    notify(input.lane === 'anchor' ? copy.messages.anchorSet : copy.messages.taskAdded);
   }
 
   function toggleTask(taskId: string) {
@@ -485,13 +546,13 @@ export default function NookPage() {
   }
 
   function deleteTask(taskId: string) {
-    const previous = captureUndo('Task restored.');
+    const previous = captureUndo(copy.messages.taskRestored);
     setSnapshot((current) => current ? {
       ...current,
       tasks: current.tasks.filter((task) => task.id !== taskId),
       selectedTaskId: current.selectedTaskId === taskId ? null : current.selectedTaskId,
     } : current);
-    notify('Task removed. Undo is available for a moment.', previous);
+    notify(copy.messages.taskRemoved, previous);
   }
 
   function changeTaskLane(taskId: string, lane: TaskLane) {
@@ -542,7 +603,7 @@ export default function NookPage() {
       }, nowIso)
       : current);
     setMorningPlanOpen(false);
-    notify('Morning plan saved on this device.');
+    notify(copy.messages.morningSaved);
   }
 
   function submitCloseDay(values: CloseDayValues) {
@@ -555,7 +616,7 @@ export default function NookPage() {
       }, nowIso)
       : current);
     setCloseDayOpen(false);
-    notify('Today is closed. Nothing else needs to be optimized.');
+    notify(copy.messages.dayClosed);
   }
 
   function addHabit(input: NewHabitInput) {
@@ -576,7 +637,7 @@ export default function NookPage() {
       legacyCheckedToday: null,
     };
     setSnapshot((current) => current ? { ...current, habits: [...current.habits, habit] } : current);
-    notify('Habit added with a minimum version.');
+    notify(copy.messages.habitAdded);
   }
 
   function toggleHabitToday(habitId: string, nextValue: number) {
@@ -695,7 +756,7 @@ export default function NookPage() {
 
   function replanOverflow() {
     if (!overCapacityBy) {
-      notify('Today already fits inside the capacity you set.');
+      notify(copy.messages.alreadyFits);
       return;
     }
     const candidates = todayTasks
@@ -712,19 +773,19 @@ export default function NookPage() {
       movedMinutes += task.minutes;
     }
     if (!movedIds.size) {
-      notify('The overload is in the Anchor. Nook will not move it without your choice.');
+      notify(copy.messages.anchorOverload);
       return;
     }
     const tomorrow = addDays(todayKey, 1);
     const nowIso = new Date().toISOString();
-    const previous = captureUndo('Previous day plan restored.');
+    const previous = captureUndo(copy.messages.previousPlanRestored);
     setSnapshot((current) => current ? {
       ...current,
       tasks: current.tasks.map((task) => movedIds.has(task.id)
         ? { ...task, dayKey: tomorrow, updatedAt: nowIso }
         : task),
     } : current);
-    notify(`Local Replan moved ${movedIds.size} ${movedIds.size === 1 ? 'task' : 'tasks'} to tomorrow.`, previous);
+    notify(copy.messages.replanMoved(movedIds.size), previous);
   }
 
   function changeNoteContent(dayKey: string, content: string) {
@@ -756,9 +817,13 @@ export default function NookPage() {
 
   function applyNoteTemplate(dayKey: string, templateId: NoteTemplateId) {
     const existing = readySnapshot.notes.find((note) => note.dayKey === dayKey)?.content ?? '';
-    const template = NOTE_TEMPLATE_CONTENT[templateId];
+    const template = {
+      'morning-plan': copy.notes.templates.morningPlan.content,
+      'close-day': copy.notes.templates.closeDay.content,
+      'weekly-reflection': copy.notes.templates.weeklyReflection.content,
+    }[templateId];
     changeNoteContent(dayKey, existing.trim() ? `${existing.trimEnd()}\n\n${template}` : template);
-    notify('Template added to this local note.');
+    notify(copy.messages.templateAdded);
   }
 
   function exportBackup() {
@@ -769,7 +834,7 @@ export default function NookPage() {
     link.download = `nook-backup-${todayKey}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    notify('Private backup exported.');
+    notify(copy.messages.backupExported);
   }
 
   async function readImport(file: File) {
@@ -778,13 +843,13 @@ export default function NookPage() {
       setPendingImport(imported);
       setBackupOpen(false);
     } catch {
-      notify('That file is not a valid Nook backup. Choose an exported JSON backup.');
+      notify(copy.messages.invalidBackup);
     }
   }
 
   function confirmImport() {
     if (!pendingImport) return;
-    const previous = captureUndo('Previous local data restored.');
+    const previous = captureUndo(copy.messages.previousDataRestored);
     try {
       localStorage.setItem(ROLLBACK_KEY, serializeBackup(readySnapshot));
     } catch {
@@ -795,11 +860,11 @@ export default function NookPage() {
     setSnapshot(imported);
     setPendingImport(null);
     setSelectedNoteDay(todayKey);
-    notify('Backup imported. Undo is available for a moment.', previous);
+    notify(getNookCopy(imported.settings.language).messages.backupImported, previous);
   }
 
   function confirmReset() {
-    const previous = captureUndo('Previous local data restored.');
+    const previous = captureUndo(copy.messages.previousDataRestored);
     try {
       localStorage.setItem(ROLLBACK_KEY, serializeBackup(readySnapshot));
     } catch {
@@ -810,7 +875,7 @@ export default function NookPage() {
     setSnapshot({ ...fresh, settings: readySnapshot.settings });
     setSelectedNoteDay(todayKey);
     setResetConfirmOpen(false);
-    notify('Local Nook data reset. Undo is available for a moment.', previous);
+    notify(copy.messages.dataReset, previous);
   }
 
   function undoLastAction() {
@@ -829,12 +894,61 @@ export default function NookPage() {
     else setBackupOpen(true);
   }
 
+  function changeLanguage(language: Language) {
+    setSnapshot((current) => current ? {
+      ...current,
+      settings: { ...current.settings, language },
+    } : current);
+  }
+
+  function completeOnboarding({ openMorningPlan }: { openMorningPlan: boolean }) {
+    setSnapshot((current) => current ? {
+      ...current,
+      settings: { ...current.settings, onboardingCompleted: true },
+    } : current);
+    if (openMorningPlan) setMorningPlanOpen(true);
+    else {
+      window.requestAnimationFrame(() => {
+        document.getElementById('nook-settings-trigger')?.focus();
+      });
+    }
+  }
+
+  function replayOnboarding() {
+    setBackupOpen(false);
+    setSnapshot((current) => current ? {
+      ...current,
+      settings: { ...current.settings, onboardingCompleted: false },
+    } : current);
+  }
+
+  const quickActionLabels: Record<QuickActionId, string> = {
+    morning: copy.dialogs.quickActions.openMorning,
+    today: copy.dialogs.quickActions.reviewToday,
+    focus: copy.dialogs.quickActions.startFocus,
+    close: copy.dialogs.quickActions.closeDay,
+    backup: copy.dialogs.quickActions.backup,
+  };
+
   return (
-    <main
-      className={`nook-app v2-app${snapshot.settings.dark ? ' is-dark' : ''}${standalone ? ' is-standalone' : ''}${dialogOpen ? ' has-dialog' : ''}`}
-      style={appStyle}
-    >
-      <div className="nook-shell v2-shell">
+    <NookI18nProvider language={language}>
+      <main
+        className={`nook-app v2-app${snapshot.settings.dark ? ' is-dark' : ''}${standalone ? ' is-standalone' : ''}${dialogOpen ? ' has-dialog' : ''}`}
+        style={appStyle}
+      >
+      {launchVisible && (
+      <NookLaunch
+        language={snapshot.settings.language}
+        phase={launchPhase}
+        dark={snapshot.settings.dark}
+      />
+      )}
+
+      <div
+        className="nook-shell v2-shell"
+        aria-hidden={backgroundBlocked ? true : undefined}
+        inert={backgroundBlocked ? true : undefined}
+      >
         <NookHeader
           activeTab={activeTab}
           isDark={snapshot.settings.dark}
@@ -854,10 +968,12 @@ export default function NookPage() {
         >
           <div className="v2-content">
             <section
+              key={activeTab}
               id="nook-tab-panel"
               className="tab-stage"
               role="tabpanel"
               aria-labelledby={`v2-dock-tab-${activeTab}`}
+              data-direction={tabDirection}
             >
               {activeTab === 'home' && (
                 <HomeView
@@ -890,17 +1006,17 @@ export default function NookPage() {
                   />
                   <PremiumPreview
                     className="v2-owner-tool"
-                    title="Local Replan"
-                    description="Nook explains the overload, then moves Optional work first and Support work second. The Anchor stays put."
+                    title={copy.premium.replan.title}
+                    description={copy.premium.replan.description}
                   >
                     <div className="v2-replan">
                       <p>
                         {overCapacityBy
-                          ? `${overCapacityBy} minutes over today’s capacity. No calendar or cloud service is involved.`
-                          : 'Today fits the capacity you set. Replan will wait until it has a real reason.'}
+                          ? copy.premium.replan.overCapacity(overCapacityBy)
+                          : copy.premium.replan.fits}
                       </p>
                       <button className="v2-button v2-button--primary" type="button" onClick={replanOverflow} disabled={!overCapacityBy}>
-                        Replan overflow
+                        {copy.premium.replan.action}
                       </button>
                     </div>
                   </PremiumPreview>
@@ -918,8 +1034,8 @@ export default function NookPage() {
                   />
                   <PremiumPreview
                     className="v2-owner-tool"
-                    title="Routine Designer"
-                    description="Tune the version of each habit that still works on a low-energy day. Changes stay local."
+                    title={copy.premium.routine.title}
+                    description={copy.premium.routine.description}
                   >
                     <div className="v2-routine-designer">
                       {snapshot.habits.filter((habit) => !habit.archivedAt).map((habit) => (
@@ -930,7 +1046,7 @@ export default function NookPage() {
                             defaultValue={habit.minimum}
                             maxLength={NOOK_INPUT_LIMITS.habitMinimum}
                             onBlur={(event) => updateHabitMinimum(habit.id, event.currentTarget.value)}
-                            aria-label={`Minimum version for ${habit.label}`}
+                            aria-label={copy.premium.routine.minimumFor(habit.label)}
                           />
                         </label>
                       ))}
@@ -986,15 +1102,15 @@ export default function NookPage() {
                   />
                   <PremiumPreview
                     className="v2-owner-tool"
-                    title="Focus profiles"
-                    description="Choose a repeatable local profile. Native app shielding and offline soundscapes come in the mobile wave."
+                    title={copy.premium.profiles.title}
+                    description={copy.premium.profiles.description}
                   >
-                    <div className="v2-profile-list" aria-label="Premium focus profiles">
+                    <div className="v2-profile-list" aria-label={copy.premium.profiles.groupLabel}>
                       {[
-                        { label: 'Reset', minutes: 15 },
-                        { label: 'Steady', minutes: 25 },
-                        { label: 'Deep', minutes: 50 },
-                        { label: 'Immersion', minutes: 90 },
+                        { label: copy.premium.profiles.reset, minutes: 15 },
+                        { label: copy.premium.profiles.steady, minutes: 25 },
+                        { label: copy.premium.profiles.deep, minutes: 50 },
+                        { label: copy.premium.profiles.immersion, minutes: 90 },
                       ].map((profile) => (
                         <button
                           key={profile.label}
@@ -1004,7 +1120,7 @@ export default function NookPage() {
                           aria-pressed={snapshot.focusTimer.presetMinutes === profile.minutes}
                         >
                           <strong>{profile.label}</strong>
-                          <span>{profile.minutes} min</span>
+                          <span>{profile.minutes} {copy.common.units.minuteShort}</span>
                         </button>
                       ))}
                     </div>
@@ -1024,26 +1140,28 @@ export default function NookPage() {
             </section>
 
             <footer className="v2-footer">
-              <p>No account. No cloud. No tracking.</p>
+              <p>{copy.footer.privacy}</p>
               <p className={saveStatus === 'error' ? 'is-error' : ''} role="status" aria-live="polite">
-                {saveStatus === 'loading' && 'Checking local storage…'}
-                {saveStatus === 'saving' && 'Saving on this device…'}
-                {saveStatus === 'saved' && 'Saved on this device'}
-                {saveStatus === 'error' && 'Save unavailable · export a backup'}
+                {copy.footer.save[saveStatus]}
               </p>
               <button className="v2-footer-action" type="button" onClick={() => setQuickOpen(true)}>
-                Ctrl/⌘ K · Quick actions
+                {copy.footer.quickActions}
               </button>
             </footer>
           </div>
         </section>
       </div>
 
-      <NookDock
-        activeTab={activeTab}
-        onTabChange={activateTab}
-        focusRunning={snapshot.focusTimer.running}
-      />
+      <div
+        aria-hidden={backgroundBlocked ? true : undefined}
+        inert={backgroundBlocked ? true : undefined}
+      >
+        <NookDock
+          activeTab={activeTab}
+          onTabChange={activateTab}
+          focusRunning={snapshot.focusTimer.running}
+        />
+      </div>
 
       <MorningPlanDialog
         open={morningPlanOpen}
@@ -1059,7 +1177,10 @@ export default function NookPage() {
       />
       <BackupDialog
         open={backupOpen}
+        language={snapshot.settings.language}
         onClose={() => setBackupOpen(false)}
+        onLanguageChange={changeLanguage}
+        onReplayOnboarding={replayOnboarding}
         onExport={exportBackup}
         onImportFile={readImport}
         onReset={() => {
@@ -1071,19 +1192,19 @@ export default function NookPage() {
       {quickOpen && (
         <ModalFrame labelId="quick-actions-title" onClose={() => setQuickOpen(false)}>
           <div className="v2-dialog-heading">
-            <p className="v2-dialog-kicker">Quick actions</p>
-            <h2 className="v2-dialog-title" id="quick-actions-title">Where should the day move?</h2>
+            <p className="v2-dialog-kicker">{copy.dialogs.quickActions.kicker}</p>
+            <h2 className="v2-dialog-title" id="quick-actions-title">{copy.dialogs.quickActions.title}</h2>
           </div>
           <div className="v2-command-list">
-            {QUICK_ACTIONS.map((command) => (
+            {QUICK_ACTION_IDS.map((actionId) => (
               <button
-                key={command.label}
+                key={actionId}
                 className="v2-command"
                 type="button"
-                onClick={() => runQuickAction(command.id)}
+                onClick={() => runQuickAction(actionId)}
               >
                 <CommandIcon size={19} weight="bold" aria-hidden="true" />
-                <span>{command.label}</span>
+                <span>{quickActionLabels[actionId]}</span>
               </button>
             ))}
           </div>
@@ -1097,16 +1218,23 @@ export default function NookPage() {
           onClose={() => setPendingImport(null)}
         >
           <div className="v2-dialog-heading">
-            <p className="v2-dialog-kicker">Review backup</p>
-            <h2 className="v2-dialog-title" id="confirm-import-title">Replace data on this device?</h2>
+            <p className="v2-dialog-kicker">{copy.dialogs.importConfirm.kicker}</p>
+            <h2 className="v2-dialog-title" id="confirm-import-title">{copy.dialogs.importConfirm.title}</h2>
             <p className="v2-dialog-description" id="confirm-import-description">
-              Nook will keep a recovery copy first. The imported file contains {pendingImport.tasks.length} tasks,
-              {' '}{pendingImport.habits.length} habits, and {pendingImport.notes.length} dated notes.
+              {copy.dialogs.importConfirm.description(
+                pendingImport.tasks.length,
+                pendingImport.habits.length,
+                pendingImport.notes.length,
+              )}
             </p>
           </div>
           <div className="v2-dialog-actions">
-            <button className="v2-button-secondary" type="button" onClick={() => setPendingImport(null)}>Keep current data</button>
-            <button className="v2-button-primary" type="button" onClick={confirmImport}>Replace with backup</button>
+            <button className="v2-button-secondary" type="button" onClick={() => setPendingImport(null)}>
+              {copy.dialogs.importConfirm.keep}
+            </button>
+            <button className="v2-button-primary" type="button" onClick={confirmImport}>
+              {copy.dialogs.importConfirm.replace}
+            </button>
           </div>
         </ModalFrame>
       )}
@@ -1118,15 +1246,19 @@ export default function NookPage() {
           onClose={() => setResetConfirmOpen(false)}
         >
           <div className="v2-dialog-heading">
-            <p className="v2-dialog-kicker">Local reset</p>
-            <h2 className="v2-dialog-title" id="confirm-reset-title">Start with an empty Nook?</h2>
+            <p className="v2-dialog-kicker">{copy.dialogs.resetConfirm.kicker}</p>
+            <h2 className="v2-dialog-title" id="confirm-reset-title">{copy.dialogs.resetConfirm.title}</h2>
             <p className="v2-dialog-description" id="confirm-reset-description">
-              This removes the current tasks, history, habits, and notes from this browser. Export first if you need a durable copy.
+              {copy.dialogs.resetConfirm.description}
             </p>
           </div>
           <div className="v2-dialog-actions">
-            <button className="v2-button-secondary" type="button" onClick={() => setResetConfirmOpen(false)}>Keep my data</button>
-            <button className="v2-button-danger" type="button" onClick={confirmReset}>Reset local data</button>
+            <button className="v2-button-secondary" type="button" onClick={() => setResetConfirmOpen(false)}>
+              {copy.dialogs.resetConfirm.keep}
+            </button>
+            <button className="v2-button-danger" type="button" onClick={confirmReset}>
+              {copy.dialogs.resetConfirm.reset}
+            </button>
           </div>
         </ModalFrame>
       )}
@@ -1137,15 +1269,24 @@ export default function NookPage() {
           {undoState && (
             <button type="button" onClick={undoLastAction}>
               <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
-              Undo
+              {copy.common.actions.undo}
             </button>
           )}
         </div>
       )}
 
       <span className="v2-owner-preview-note" aria-hidden="true">
-        <Sparkle size={13} weight="bold" /> Owner preview
+        <Sparkle size={13} weight="bold" /> {copy.common.ownerPreview}
       </span>
-    </main>
+
+      {onboardingOpen && (
+        <NookOnboarding
+          language={snapshot.settings.language}
+          onLanguageChange={changeLanguage}
+          onComplete={completeOnboarding}
+        />
+      )}
+      </main>
+    </NookI18nProvider>
   );
 }

@@ -52,6 +52,23 @@ The primary hash-backed navigation and its order are fixed:
 5. **Notes** — one Markdown-friendly note per date, date selection, archive,
    search, and local note templates.
 
+## First Run, Language, and Motion
+
+- A fresh installation opens with a branded Nook launch moment, then a
+  three-step, skippable introduction. Step one chooses **English** or
+  **Tiếng Việt**; English is the default.
+- Completing the final step opens the real Morning Plan. Skipping completes
+  onboarding without changing or inventing daily data.
+- The selected language applies to the full interface, including controls,
+  dialogs, accessibility labels, dates, numbers, and plural forms. The choice
+  is stored locally and can be changed at any time in Settings.
+- Settings can replay the introduction without removing current data. Existing
+  v1 migrations and v2 snapshots created before onboarding are treated as
+  completed, so returning users are never forced through it.
+- Tab transitions follow the ordered destinations: forward movement enters
+  from the right and backward movement from the left. Reduced-motion mode uses
+  a brief fade instead.
+
 ## Free Foundation
 
 The intended free product remains useful on its own:
@@ -64,6 +81,8 @@ The intended free product remains useful on its own:
   and factual completed-session history.
 - Dated private notes, archive search, theme preference, quick actions, and
   manual JSON export/import.
+- English and Vietnamese interface language, optional onboarding, and its
+  replay control.
 
 The checked-in owner-preview build does not enforce this product boundary; all
 preview modules are available locally so they can be evaluated together.
@@ -91,7 +110,7 @@ copy.
 
 - The v2 snapshot is stored under `nook.local.v2` in browser storage. It covers
   tasks, habits, dated habit logs, dated notes, daily records, focus sessions,
-  active timer state, selected task, and theme preference.
+  active timer state, selected task, theme, language, and onboarding state.
 - If no v2 snapshot exists, Nook recognizes `nook.local.v1`, safely normalizes
   its current values into schema v2, and writes future changes to the v2 key.
   The migration preserves undated v1 aggregates as legacy values rather than
@@ -125,7 +144,8 @@ personal owner or author name.
 - Quiet by default: show the next useful action without turning progress into a
   competition.
 - Local ownership: make storage behavior and manual backup understandable.
-- Zero-account immediacy: core work starts without registration or onboarding.
+- Zero-account immediacy: the short introduction is optional and never blocks
+  returning users; no registration is required.
 - Gentle progress: encourage focus and consistency without guilt or streak
   pressure.
 - Honest state: use recorded facts and wait when there is not enough evidence
@@ -136,6 +156,8 @@ personal owner or author name.
 Preserve keyboard operation, visible focus states, semantic labels, responsive
 layouts, reduced-motion support, reduced-transparency handling, and forced-color
 compatibility. Subscription design must never reduce access to these basics.
+The launch aperture, onboarding transitions, and forward/backward tab motion
+collapse to brief fades when reduced motion is requested.
 
 ## Evidence on Hand
 

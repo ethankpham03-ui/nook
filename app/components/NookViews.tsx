@@ -21,6 +21,8 @@ import { Timer } from '@phosphor-icons/react/Timer';
 import { Trash } from '@phosphor-icons/react/Trash';
 import type { FormEvent, ReactNode } from 'react';
 import { useId, useMemo, useState } from 'react';
+import { useNookI18n } from '../lib/i18n';
+import type { Language, NookCopy } from '../lib/i18n';
 import { NOOK_INPUT_LIMITS } from '../lib/nook-state';
 import type {
   DailyRecord,
@@ -34,26 +36,38 @@ import type {
   TaskLane,
 } from '../lib/nook-state';
 
-const TASK_LANES: ReadonlyArray<{
-  id: TaskLane;
-  label: string;
-  description: string;
-}> = [
-  { id: 'anchor' as TaskLane, label: 'Anchor', description: 'The work that would make today count.' },
-  { id: 'support' as TaskLane, label: 'Support', description: 'Useful work that keeps the day moving.' },
-  { id: 'optional' as TaskLane, label: 'Optional', description: 'Good to do only if there is room.' },
-];
+const TASK_LANE_IDS = ['anchor', 'support', 'optional'] as const satisfies readonly TaskLane[];
 
 const FOCUS_PRESETS = [15, 25, 50, 90] as const;
 const COMPASS_MINIMUM_DAYS = 3;
 
-const NOTE_TEMPLATES = [
-  { id: 'morning-plan', label: 'Morning plan', description: 'Name the anchor, the support, and what can wait.' },
-  { id: 'close-day', label: 'Close the day', description: 'Record what moved, what did not, and what to release.' },
-  { id: 'weekly-reflection', label: 'Weekly reflection', description: 'Review the week using only what was recorded.' },
-] as const;
+const VIEW_TERMS = {
+  en: {
+    capacityUnset: 'Set a capacity to keep the plan honest.',
+    checklist: { one: 'checklist item', other: 'checklist items' },
+    daily: 'Daily',
+    habit: 'Habit',
+    minimumMissing: 'Minimum version not set',
+    open: { one: 'open', other: 'open', zero: 'open' },
+  },
+  vi: {
+    capacityUnset: 'Đặt sức chứa để kế hoạch luôn vừa sức.',
+    checklist: { one: 'mục danh sách', other: 'mục danh sách' },
+    daily: 'Hằng ngày',
+    habit: 'Thói quen',
+    minimumMissing: 'Chưa đặt phiên bản tối thiểu',
+    open: { one: 'còn lại', other: 'còn lại', zero: 'còn lại' },
+  },
+} as const satisfies Record<Language, {
+  capacityUnset: string;
+  checklist: { one: string; other: string };
+  daily: string;
+  habit: string;
+  minimumMissing: string;
+  open: { one: string; other: string; zero: string };
+}>;
 
-export type NoteTemplateId = (typeof NOTE_TEMPLATES)[number]['id'];
+export type NoteTemplateId = 'morning-plan' | 'close-day' | 'weekly-reflection';
 
 export interface NewTaskInput {
   title: string;
@@ -162,34 +176,11 @@ function lastSevenDayKeys(dayKey: string) {
   });
 }
 
-function formatDay(dayKey: string, options: Intl.DateTimeFormatOptions) {
-  const date = parseDayKey(dayKey);
-  if (!date) return dayKey;
-  return new Intl.DateTimeFormat('en-US', options).format(date);
-}
-
-function formatLongDay(dayKey: string) {
-  return formatDay(dayKey, { weekday: 'long', month: 'long', day: 'numeric' });
-}
-
-function formatArchiveDay(dayKey: string) {
-  return formatDay(dayKey, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatWeekday(dayKey: string) {
-  return formatDay(dayKey, { weekday: 'short' }).slice(0, 2);
-}
-
 function formatTimer(totalSeconds: number) {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
   const seconds = (safeSeconds % 60).toString().padStart(2, '0');
   return `${minutes}:${seconds}`;
-}
-
-function minutesLabel(minutes: number) {
-  const rounded = Math.max(0, Math.round(minutes));
-  return `${rounded} min`;
 }
 
 function countWords(value: string) {
@@ -232,20 +223,25 @@ function meaningfulMarkdown(value: string) {
     .trim();
 }
 
-function taskLaneLabel(lane: TaskLane) {
-  return TASK_LANES.find((item) => item.id === lane)?.label ?? 'Task lane';
+function taskLaneCopy(copy: NookCopy, lane: TaskLane) {
+  return copy.today.lanes[lane] ?? {
+    label: copy.today.lanes.fallback,
+    description: '',
+  };
 }
 
 export function PremiumPreview({ children, className = '', description, title }: PremiumPreviewProps) {
+  const { copy } = useNookI18n();
+
   return (
     <section
       className={`v2-premium-preview ${className}`.trim()}
-      aria-label={title ? `${title}, premium preview` : 'Premium preview'}
+      aria-label={copy.premium.sectionLabel(title)}
     >
       <div className="v2-premium-preview__header">
         <span className="v2-premium-preview__badge">
           <Sparkle size={15} weight="bold" aria-hidden="true" />
-          Premium preview · local
+          {copy.common.premiumPreview}
         </span>
         {title && <h2 className="v2-premium-preview__title">{title}</h2>}
         {description && <p className="v2-premium-preview__description">{description}</p>}
@@ -268,6 +264,7 @@ export function HomeView({
   onOpenMorningPlan,
   tasks,
 }: HomeViewProps) {
+  const { copy, formatDayKey, formatMinutes, formatNumber } = useNookI18n();
   const todayTasks = tasks.filter((task) => task.dayKey === dayKey);
   const pendingTasks = todayTasks.filter((task) => !task.done);
   const pendingAnchor = pendingTasks.find((task) => task.lane === ('anchor' as TaskLane));
@@ -284,27 +281,35 @@ export function HomeView({
   const arcFacts = [
     {
       id: 'plan',
-      label: 'Shape',
+      label: copy.home.arc.stages.shape,
       complete: hasMorningPlan,
-      detail: todayTasks.length ? `${todayTasks.length} ${todayTasks.length === 1 ? 'task' : 'tasks'} placed` : 'No plan recorded',
+      detail: todayTasks.length ? copy.home.arc.tasksPlaced(todayTasks.length) : copy.home.arc.noPlan,
     },
     {
       id: 'focus',
-      label: 'Focus',
+      label: copy.home.arc.stages.focus,
       complete: todayFocusMinutes > 0,
-      detail: todayFocusMinutes > 0 ? `${minutesLabel(todayFocusMinutes)} recorded` : 'No session recorded',
+      detail: todayFocusMinutes > 0
+        ? copy.home.arc.focusRecorded(formatMinutes(todayFocusMinutes))
+        : copy.home.arc.noSession,
     },
     {
       id: 'tend',
-      label: 'Tend',
+      label: copy.home.arc.stages.tend,
       complete: habitsCheckedToday > 0,
-      detail: activeHabits.length ? `${habitsCheckedToday} of ${activeHabits.length} habits checked` : 'No habits added',
+      detail: activeHabits.length
+        ? copy.home.arc.habitsChecked(habitsCheckedToday, activeHabits.length)
+        : copy.home.arc.noHabits,
     },
     {
       id: 'close',
-      label: 'Close',
+      label: copy.home.arc.stages.close,
       complete: hasReflection,
-      detail: todayRecord?.closedAt ? 'Day closed' : hasNoteContent(todayNote) ? 'A note is waiting' : 'No closing note yet',
+      detail: todayRecord?.closedAt
+        ? copy.home.dayClosed
+        : hasNoteContent(todayNote)
+          ? copy.home.arc.noteWaiting
+          : copy.home.arc.noClosingNote,
     },
   ];
   const firstOpenStage = arcFacts.findIndex((stage) => !stage.complete);
@@ -313,43 +318,46 @@ export function HomeView({
     state: (stage.complete ? 'complete' : index === firstOpenStage ? 'current' : 'waiting') as DayArcState,
   }));
 
-  let quietMoveTitle = 'The day is ready to close.';
-  let quietMoveDetail = 'Leave one honest line while the shape of the day is still clear.';
-  let quietMoveAction = 'Close the day';
+  let quietMoveTitle = copy.home.quietMove.readyToCloseTitle;
+  let quietMoveDetail = copy.home.quietMove.readyToCloseDetail;
+  let quietMoveAction = copy.home.quietMove.closeAction;
   let handleQuietMove = onCloseDay;
 
   if (todayRecord?.closedAt) {
-    quietMoveTitle = 'The day is closed.';
-    quietMoveDetail = 'Nothing else needs to be optimized. Your note remains available when you want it.';
-    quietMoveAction = 'Open today’s note';
+    quietMoveTitle = copy.home.quietMove.closedTitle;
+    quietMoveDetail = copy.home.quietMove.closedDetail;
+    quietMoveAction = copy.home.quietMove.openNoteAction;
     handleQuietMove = () => onNavigate('notes' as Tab);
   } else if (!hasMorningPlan) {
-    quietMoveTitle = 'Give the day a believable shape.';
-    quietMoveDetail = 'Set a capacity and choose one anchor before adding more.';
-    quietMoveAction = 'Morning plan';
+    quietMoveTitle = copy.home.quietMove.shapeTitle;
+    quietMoveDetail = copy.home.quietMove.shapeDetail;
+    quietMoveAction = copy.home.quietMove.morningPlanAction;
     handleQuietMove = onOpenMorningPlan;
   } else if (pendingAnchor) {
     quietMoveTitle = pendingAnchor.title;
-    quietMoveDetail = `${pendingAnchor.category} · ${minutesLabel(pendingAnchor.minutes)} · today’s anchor`;
-    quietMoveAction = 'Focus this anchor';
+    quietMoveDetail = copy.home.quietMove.anchorDetail(
+      pendingAnchor.category,
+      formatMinutes(pendingAnchor.minutes),
+    );
+    quietMoveAction = copy.home.quietMove.focusAnchorAction;
     handleQuietMove = () => {
       if (onFocusTask) onFocusTask(pendingAnchor.id);
       else onNavigate('focus' as Tab);
     };
   } else if (pendingTasks.length) {
-    quietMoveTitle = 'Choose the next useful task.';
-    quietMoveDetail = `${pendingTasks.length} ${pendingTasks.length === 1 ? 'task remains' : 'tasks remain'}, with no unfinished anchor.`;
-    quietMoveAction = 'Review today';
+    quietMoveTitle = copy.home.quietMove.chooseTaskTitle;
+    quietMoveDetail = copy.home.quietMove.remainingTasks(pendingTasks.length);
+    quietMoveAction = copy.home.quietMove.reviewTodayAction;
     handleQuietMove = () => onNavigate('today' as Tab);
   } else if (habitsCheckedToday < activeHabits.length) {
-    quietMoveTitle = 'Tend one small thing.';
-    quietMoveDetail = 'The task list is clear. A minimum version is enough.';
-    quietMoveAction = 'Open habits';
+    quietMoveTitle = copy.home.quietMove.tendTitle;
+    quietMoveDetail = copy.home.quietMove.tendDetail;
+    quietMoveAction = copy.home.quietMove.openHabitsAction;
     handleQuietMove = () => onNavigate('habits' as Tab);
   } else if (!hasNoteContent(todayNote)) {
-    quietMoveTitle = 'Leave a breadcrumb.';
-    quietMoveDetail = 'One line is enough to make the day easier to remember.';
-    quietMoveAction = 'Open today’s note';
+    quietMoveTitle = copy.home.quietMove.noteTitle;
+    quietMoveDetail = copy.home.quietMove.noteDetail;
+    quietMoveAction = copy.home.quietMove.openNoteAction;
     handleQuietMove = () => onNavigate('notes' as Tab);
   }
 
@@ -385,14 +393,14 @@ export function HomeView({
     <div className="v2-view v2-home-view">
       <header className="v2-view-header v2-home-view__header">
         <div className="v2-view-header__copy">
-          <p className="v2-view-header__date">{formatLongDay(dayKey)}</p>
-          <h1 className="v2-view-header__title">A day with room to breathe.</h1>
-          <p className="v2-view-header__description">See what is true, then make one quiet move.</p>
+          <p className="v2-view-header__date">{formatDayKey(dayKey)}</p>
+          <h1 className="v2-view-header__title">{copy.home.title}</h1>
+          <p className="v2-view-header__description">{copy.home.description}</p>
         </div>
-        <div className="v2-home-view__ritual-actions" aria-label="Daily rituals">
+        <div className="v2-home-view__ritual-actions" aria-label={copy.home.dailyRituals}>
           <button type="button" className="v2-button v2-button--secondary" onClick={onOpenMorningPlan}>
             <CalendarBlank size={18} weight="bold" aria-hidden="true" />
-            {todayRecord?.openedAt ? 'Review morning plan' : 'Morning plan'}
+            {todayRecord?.openedAt ? copy.home.reviewMorningPlan : copy.home.morningPlan}
           </button>
           <button
             type="button"
@@ -401,7 +409,7 @@ export function HomeView({
             disabled={Boolean(todayRecord?.closedAt)}
           >
             <Check size={18} weight="bold" aria-hidden="true" />
-            {todayRecord?.closedAt ? 'Day closed' : 'Close day'}
+            {todayRecord?.closedAt ? copy.home.dayClosed : copy.home.closeDay}
           </button>
         </div>
       </header>
@@ -410,16 +418,18 @@ export function HomeView({
         <section className="v2-day-arc" aria-labelledby="v2-day-arc-title">
           <div className="v2-section-heading">
             <div>
-              <h2 id="v2-day-arc-title" className="v2-section-heading__title">Day Arc</h2>
-              <p className="v2-section-heading__description">A factual trace of today, not a score.</p>
+              <h2 id="v2-day-arc-title" className="v2-section-heading__title">{copy.home.arc.title}</h2>
+              <p className="v2-section-heading__description">{copy.home.arc.description}</p>
             </div>
-            <span className="v2-measure">{arcFacts.filter((stage) => stage.complete).length} of 4</span>
+            <span className="v2-measure">
+              {formatNumber(arcFacts.filter((stage) => stage.complete).length)} / {formatNumber(arcFacts.length)}
+            </span>
           </div>
           <progress
             className="v2-day-arc__progress"
             max={arcFacts.length}
             value={arcFacts.filter((stage) => stage.complete).length}
-            aria-label="Completed stages in today’s arc"
+            aria-label={copy.home.arc.progressLabel}
           />
           <ol className="v2-day-arc__steps">
             {arcStages.map((stage) => (
@@ -445,7 +455,7 @@ export function HomeView({
           <div className="v2-quiet-move__icon" aria-hidden="true">
             <ArrowRight size={22} weight="bold" />
           </div>
-          <p className="v2-quiet-move__label">Next quiet move</p>
+          <p className="v2-quiet-move__label">{copy.home.quietMove.label}</p>
           <h2 id="v2-quiet-move-title" className="v2-quiet-move__title">{quietMoveTitle}</h2>
           <p className="v2-quiet-move__description">{quietMoveDetail}</p>
           <button type="button" className="v2-button v2-button--focus" onClick={handleQuietMove}>
@@ -457,42 +467,42 @@ export function HomeView({
 
       <PremiumPreview
         className="v2-weekly-compass"
-        title="Weekly Compass"
-        description="A seven-day view assembled only from records on this device."
+        title={copy.home.compass.title}
+        description={copy.home.compass.description}
       >
         {daysStillNeeded > 0 ? (
           <div className="v2-weekly-compass__waiting" role="status">
             <Compass size={25} weight="bold" aria-hidden="true" />
             <div>
               <p className="v2-weekly-compass__waiting-title">
-                Add {daysStillNeeded} more {daysStillNeeded === 1 ? 'day' : 'days'} to reveal a weekly pattern.
+                {copy.home.compass.revealAfter(daysStillNeeded)}
               </p>
               <p className="v2-weekly-compass__waiting-copy">
-                {observedDays.size} of {COMPASS_MINIMUM_DAYS} recorded days available. Nook will not infer a pattern early.
+                {copy.home.compass.recordedDays(observedDays.size, COMPASS_MINIMUM_DAYS)}
               </p>
             </div>
           </div>
         ) : (
           <div className="v2-weekly-compass__facts">
             <p className="v2-weekly-compass__summary">
-              {observedDays.size} active days are represented in this seven-day window.
+              {copy.home.compass.activeDays(observedDays.size)}
             </p>
             <dl className="v2-weekly-compass__measures">
               <div>
-                <dt>Tasks completed</dt>
-                <dd>{weeklyCompletedTasks}</dd>
+                <dt>{copy.home.compass.tasksCompleted}</dt>
+                <dd>{formatNumber(weeklyCompletedTasks)}</dd>
               </div>
               <div>
-                <dt>Focus recorded</dt>
-                <dd>{minutesLabel(weeklyFocusMinutes)}</dd>
+                <dt>{copy.home.compass.focusRecorded}</dt>
+                <dd>{formatMinutes(weeklyFocusMinutes)}</dd>
               </div>
               <div>
-                <dt>Habit check-ins</dt>
-                <dd>{weeklyHabitChecks}</dd>
+                <dt>{copy.home.compass.habitCheckIns}</dt>
+                <dd>{formatNumber(weeklyHabitChecks)}</dd>
               </div>
               <div>
-                <dt>Note days</dt>
-                <dd>{weeklyNoteDays}</dd>
+                <dt>{copy.home.compass.noteDays}</dt>
+                <dd>{formatNumber(weeklyNoteDays)}</dd>
               </div>
             </dl>
           </div>
@@ -513,13 +523,15 @@ export function TodayView({
   onToggleTask,
   tasks,
 }: TodayViewProps) {
+  const { copy, formatCount, formatDayKey, formatMinutes, language } = useNookI18n();
+  const terms = VIEW_TERMS[language];
   const titleId = useId();
   const categoryId = useId();
   const minutesId = useId();
   const laneId = useId();
   const capacityId = useId();
   const [taskTitle, setTaskTitle] = useState('');
-  const [taskCategory, setTaskCategory] = useState('Personal');
+  const [taskCategory, setTaskCategory] = useState('');
   const [taskMinutes, setTaskMinutes] = useState(25);
   const [taskLane, setTaskLane] = useState<TaskLane>('anchor' as TaskLane);
 
@@ -538,7 +550,7 @@ export function TodayView({
 
     onAddTask({
       title,
-      category: taskCategory.trim() || 'Personal',
+      category: taskCategory.trim(),
       minutes: Math.max(5, Math.round(taskMinutes)),
       lane: taskLane,
     });
@@ -550,9 +562,9 @@ export function TodayView({
     <div className="v2-view v2-today-view">
       <header className="v2-view-header">
         <div className="v2-view-header__copy">
-          <p className="v2-view-header__date">{formatLongDay(dayKey)}</p>
-          <h1 className="v2-view-header__title">Make the day believable.</h1>
-          <p className="v2-view-header__description">One anchor, useful support, and optional work only if there is room.</p>
+          <p className="v2-view-header__date">{formatDayKey(dayKey)}</p>
+          <h1 className="v2-view-header__title">{copy.today.title}</h1>
+          <p className="v2-view-header__description">{copy.today.description}</p>
         </div>
       </header>
 
@@ -560,16 +572,17 @@ export function TodayView({
         <div className="v2-capacity__copy">
           <Gauge size={24} weight="bold" aria-hidden="true" />
           <div>
-            <h2 id="v2-capacity-title" className="v2-capacity__title">Daily capacity</h2>
+            <h2 id="v2-capacity-title" className="v2-capacity__title">{copy.today.capacity.title}</h2>
             <p className="v2-capacity__status" role="status">
-              {!capacityMinutes && 'Set a capacity to keep the plan honest.'}
-              {capacityMinutes > 0 && overCapacityBy === 0 && `${minutesLabel(plannedMinutes)} planned inside ${minutesLabel(capacityMinutes)}.`}
-              {overCapacityBy > 0 && `${minutesLabel(overCapacityBy)} over the capacity you set.`}
+              {!capacityMinutes && terms.capacityUnset}
+              {capacityMinutes > 0 && overCapacityBy === 0
+                && copy.today.capacity.fits(Math.max(0, capacityMinutes - plannedMinutes))}
+              {overCapacityBy > 0 && copy.today.capacity.over(overCapacityBy)}
             </p>
           </div>
         </div>
         <div className="v2-capacity__control">
-          <label htmlFor={capacityId}>Available minutes</label>
+          <label htmlFor={capacityId}>{copy.today.capacity.available}</label>
           <input
             id={capacityId}
             className="v2-field v2-capacity__input"
@@ -586,43 +599,46 @@ export function TodayView({
           className="v2-capacity__progress"
           max={Math.max(capacityMinutes, plannedMinutes, 1)}
           value={Math.min(plannedMinutes, Math.max(capacityMinutes, plannedMinutes, 1))}
-          aria-label={`${minutesLabel(plannedMinutes)} planned, ${minutesLabel(capacityMinutes)} available`}
+          aria-label={copy.today.capacity.plannedAvailable(
+            formatMinutes(plannedMinutes),
+            formatMinutes(capacityMinutes),
+          )}
         />
-        <p className="v2-capacity__completed">{minutesLabel(completedMinutes)} completed today</p>
+        <p className="v2-capacity__completed">{copy.today.capacity.completed(formatMinutes(completedMinutes))}</p>
       </section>
 
       <form className="v2-quick-capture" onSubmit={submitTask} aria-labelledby="v2-quick-capture-title">
         <div className="v2-quick-capture__heading">
           <Plus size={20} weight="bold" aria-hidden="true" />
-          <h2 id="v2-quick-capture-title">Quick capture</h2>
+          <h2 id="v2-quick-capture-title">{copy.today.capture.title}</h2>
         </div>
         <div className="v2-quick-capture__fields">
           <div className="v2-field-group v2-field-group--wide">
-            <label htmlFor={titleId}>Task</label>
+            <label htmlFor={titleId}>{copy.today.capture.task}</label>
             <input
               id={titleId}
               className="v2-field"
               value={taskTitle}
               onChange={(event) => setTaskTitle(event.target.value)}
               maxLength={NOOK_INPUT_LIMITS.taskTitle}
-              placeholder="What needs a place today?"
+              placeholder={copy.today.capture.taskPlaceholder}
               autoComplete="off"
             />
           </div>
           <div className="v2-field-group">
-            <label htmlFor={categoryId}>Category</label>
+            <label htmlFor={categoryId}>{copy.today.capture.category}</label>
             <input
               id={categoryId}
               className="v2-field"
               value={taskCategory}
               onChange={(event) => setTaskCategory(event.target.value)}
               maxLength={NOOK_INPUT_LIMITS.taskCategory}
-              placeholder="Personal"
+              placeholder={copy.today.capture.categoryPlaceholder}
               autoComplete="off"
             />
           </div>
           <div className="v2-field-group">
-            <label htmlFor={minutesId}>Minutes</label>
+            <label htmlFor={minutesId}>{copy.today.capture.minutes}</label>
             <input
               id={minutesId}
               className="v2-field"
@@ -636,35 +652,38 @@ export function TodayView({
             />
           </div>
           <div className="v2-field-group">
-            <label htmlFor={laneId}>Lane</label>
+            <label htmlFor={laneId}>{copy.today.capture.lane}</label>
             <select
               id={laneId}
               className="v2-field"
               value={taskLane}
               onChange={(event) => setTaskLane(event.target.value as TaskLane)}
             >
-              {TASK_LANES.map((lane) => <option key={lane.id} value={lane.id}>{lane.label}</option>)}
+              {TASK_LANE_IDS.map((lane) => (
+                <option key={lane} value={lane}>{taskLaneCopy(copy, lane).label}</option>
+              ))}
             </select>
           </div>
           <button type="submit" className="v2-button v2-button--primary" disabled={!taskTitle.trim()}>
-            Add to today
+            {copy.today.capture.addTask}
           </button>
         </div>
       </form>
 
       <div className="v2-task-lanes">
-        {TASK_LANES.map((lane) => {
-          const laneTasks = todayTasks.filter((task) => task.lane === lane.id);
+        {TASK_LANE_IDS.map((lane) => {
+          const laneCopy = taskLaneCopy(copy, lane);
+          const laneTasks = todayTasks.filter((task) => task.lane === lane);
           const unfinishedCount = laneTasks.filter((task) => !task.done).length;
 
           return (
-            <section key={lane.id} className="v2-task-lane" data-lane={lane.id} aria-labelledby={`v2-lane-${lane.id}`}>
+            <section key={lane} className="v2-task-lane" data-lane={lane} aria-labelledby={`v2-lane-${lane}`}>
               <div className="v2-task-lane__heading">
                 <div>
-                  <h2 id={`v2-lane-${lane.id}`}>{lane.label}</h2>
-                  <p>{lane.description}</p>
+                  <h2 id={`v2-lane-${lane}`}>{laneCopy.label}</h2>
+                  <p>{laneCopy.description}</p>
                 </div>
-                <span className="v2-measure">{unfinishedCount} open</span>
+                <span className="v2-measure">{formatCount(unfinishedCount, terms.open)}</span>
               </div>
 
               {laneTasks.length ? (
@@ -675,7 +694,9 @@ export function TodayView({
                         type="button"
                         className="v2-icon-button v2-task-row__toggle"
                         onClick={() => onToggleTask(task.id)}
-                        aria-label={task.done ? `Mark ${task.title} incomplete` : `Complete ${task.title}`}
+                        aria-label={task.done
+                          ? copy.today.taskA11y.markIncomplete(task.title)
+                          : copy.today.taskA11y.complete(task.title)}
                         aria-pressed={task.done}
                       >
                         {task.done
@@ -685,20 +706,22 @@ export function TodayView({
                       <div className="v2-task-row__body">
                         <p className="v2-task-row__title">{task.title}</p>
                         <p className="v2-task-row__meta">
-                          {task.category} · {minutesLabel(task.minutes)}
-                          {task.checklist.length > 0 && ` · ${task.checklist.length} checklist ${task.checklist.length === 1 ? 'item' : 'items'}`}
+                          {task.category || copy.today.capture.categoryPlaceholder} · {formatMinutes(task.minutes)}
+                          {task.checklist.length > 0 && ` · ${formatCount(task.checklist.length, terms.checklist)}`}
                         </p>
                       </div>
                       <label className="v2-task-row__lane-control">
-                        <span className="v2-visually-hidden">Move {task.title} to another lane</span>
+                        <span className="v2-visually-hidden">
+                          {copy.today.taskA11y.lane(task.title, taskLaneCopy(copy, task.lane).label)}
+                        </span>
                         <select
                           className="v2-field v2-field--compact"
                           value={task.lane}
                           onChange={(event) => onChangeTaskLane(task.id, event.target.value as TaskLane)}
-                          aria-label={`Lane for ${task.title}: ${taskLaneLabel(task.lane)}`}
+                          aria-label={copy.today.taskA11y.lane(task.title, taskLaneCopy(copy, task.lane).label)}
                         >
-                          {TASK_LANES.map((option) => (
-                            <option key={option.id} value={option.id}>{option.label}</option>
+                          {TASK_LANE_IDS.map((option) => (
+                            <option key={option} value={option}>{taskLaneCopy(copy, option).label}</option>
                           ))}
                         </select>
                       </label>
@@ -707,7 +730,7 @@ export function TodayView({
                           type="button"
                           className="v2-icon-button"
                           onClick={() => onFocusTask(task.id)}
-                          aria-label={`Focus on ${task.title}`}
+                          aria-label={copy.today.taskA11y.focus(task.title)}
                         >
                           <Play size={17} weight="bold" aria-hidden="true" />
                         </button>
@@ -716,7 +739,7 @@ export function TodayView({
                         type="button"
                         className="v2-icon-button v2-icon-button--danger"
                         onClick={() => onDeleteTask(task.id)}
-                        aria-label={`Delete ${task.title}`}
+                        aria-label={copy.today.taskA11y.delete(task.title)}
                       >
                         <Trash size={17} weight="bold" aria-hidden="true" />
                       </button>
@@ -724,7 +747,7 @@ export function TodayView({
                   ))}
                 </ul>
               ) : (
-                <p className="v2-empty-state">Nothing placed here today.</p>
+                <p className="v2-empty-state">{copy.today.emptyLane}</p>
               )}
             </section>
           );
@@ -741,6 +764,8 @@ export function HabitsView({
   onAddHabit,
   onToggleToday,
 }: HabitsViewProps) {
+  const { copy, formatDayKey, language } = useNookI18n();
+  const terms = VIEW_TERMS[language];
   const habitNameId = useId();
   const minimumId = useId();
   const [habitName, setHabitName] = useState('');
@@ -763,20 +788,24 @@ export function HabitsView({
     <div className="v2-view v2-habits-view">
       <header className="v2-view-header">
         <div className="v2-view-header__copy">
-          <p className="v2-view-header__date">{formatLongDay(dayKey)}</p>
-          <h1 className="v2-view-header__title">Small enough to keep.</h1>
-          <p className="v2-view-header__description">Track the rhythm without turning a missed day into a verdict.</p>
+          <p className="v2-view-header__date">{formatDayKey(dayKey)}</p>
+          <h1 className="v2-view-header__title">{copy.habits.title}</h1>
+          <p className="v2-view-header__description">{copy.habits.description}</p>
         </div>
-        <p className="v2-habits-view__today-count" aria-live="polite">{checkedToday} of {activeHabits.length} checked today</p>
+        <p className="v2-habits-view__today-count" aria-live="polite">
+          {copy.habits.checkedToday(checkedToday, activeHabits.length)}
+        </p>
       </header>
 
       <section className="v2-habit-world" aria-labelledby="v2-habits-today-title">
         <div className="v2-section-heading">
           <div>
-            <h2 id="v2-habits-today-title" className="v2-section-heading__title">Today’s minimum versions</h2>
-            <p className="v2-section-heading__description">The smallest honest version still counts.</p>
+            <h2 id="v2-habits-today-title" className="v2-section-heading__title">{copy.habits.minimumTitle}</h2>
+            <p className="v2-section-heading__description">{copy.habits.minimumDescription}</p>
           </div>
-          <span className="v2-local-label"><Leaf size={15} weight="bold" aria-hidden="true" /> Stored locally</span>
+          <span className="v2-local-label">
+            <Leaf size={15} weight="bold" aria-hidden="true" /> {copy.common.local}
+          </span>
         </div>
 
         {activeHabits.length ? (
@@ -791,31 +820,35 @@ export function HabitsView({
                     className="v2-habit-row__toggle"
                     onClick={() => onToggleToday(habit.id, isChecked ? 0 : 1)}
                     aria-pressed={isChecked}
-                    aria-label={isChecked ? `Uncheck ${habit.label} for today` : `Check ${habit.label} for today`}
+                    aria-label={isChecked
+                      ? copy.habits.uncheckToday(habit.label)
+                      : copy.habits.checkToday(habit.label)}
                   >
                     <span className="v2-habit-row__mark" aria-hidden="true">
                       {isChecked ? <Check size={18} weight="bold" /> : habit.mark}
                     </span>
                     <span className="v2-habit-row__copy">
                       <strong>{habit.label}</strong>
-                      <span>{habit.minimum || 'Minimum version not set'}</span>
+                      <span>{habit.minimum || terms.minimumMissing}</span>
                     </span>
-                    <span className="v2-habit-row__cadence">{habit.cadence}</span>
+                    <span className="v2-habit-row__cadence">
+                      {habit.cadence.toLowerCase() === 'daily' ? terms.daily : habit.cadence}
+                    </span>
                   </button>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="v2-empty-state">No habits yet. Add one with a minimum version you can keep on a difficult day.</p>
+          <p className="v2-empty-state">{copy.habits.empty}</p>
         )}
       </section>
 
       <section className="v2-rhythm" aria-labelledby="v2-rhythm-title">
         <div className="v2-section-heading">
           <div>
-            <h2 id="v2-rhythm-title" className="v2-section-heading__title">Seven-day rhythm</h2>
-            <p className="v2-section-heading__description">Check-ins only. No streak loss, ranking, or simulated history.</p>
+            <h2 id="v2-rhythm-title" className="v2-section-heading__title">{copy.habits.rhythm.title}</h2>
+            <p className="v2-section-heading__description">{copy.habits.rhythm.description}</p>
           </div>
         </div>
         {activeHabits.length ? (
@@ -823,10 +856,12 @@ export function HabitsView({
             <table className="v2-rhythm__table">
               <thead>
                 <tr>
-                  <th scope="col">Habit</th>
+                  <th scope="col">{terms.habit}</th>
                   {rhythmDays.map((rhythmDay) => (
                     <th key={rhythmDay} scope="col" data-today={rhythmDay === dayKey ? 'true' : 'false'}>
-                      <abbr title={formatArchiveDay(rhythmDay)}>{formatWeekday(rhythmDay)}</abbr>
+                      <abbr title={formatDayKey(rhythmDay, 'archive')}>
+                        {formatDayKey(rhythmDay, 'weekdayShort')}
+                      </abbr>
                     </th>
                   ))}
                 </tr>
@@ -838,8 +873,16 @@ export function HabitsView({
                     {rhythmDays.map((rhythmDay) => {
                       const state = habitRhythmState(habit, habitLogs, rhythmDay);
                       const checked = state === 'checked';
-                      const stateLabel = state === 'unknown' ? 'no record' : state.replace('-', ' ');
-                      const cellLabel = `${habit.label}, ${formatArchiveDay(rhythmDay)}: ${stateLabel}`;
+                      const stateLabel = state === 'unknown'
+                        ? copy.habits.rhythm.noRecord
+                        : state === 'checked'
+                          ? copy.habits.rhythm.checked
+                          : copy.habits.rhythm.notChecked;
+                      const cellLabel = copy.habits.rhythm.cell(
+                        habit.label,
+                        formatDayKey(rhythmDay, 'archive'),
+                        stateLabel,
+                      );
                       return (
                         <td
                           key={rhythmDay}
@@ -852,7 +895,7 @@ export function HabitsView({
                               type="button"
                               className="v2-rhythm__today-toggle"
                               onClick={() => onToggleToday(habit.id, checked ? 0 : 1)}
-                              aria-label={`${cellLabel}. Toggle today.`}
+                              aria-label={copy.habits.rhythm.toggleToday(cellLabel)}
                               aria-pressed={checked}
                             >
                               {checked
@@ -879,7 +922,7 @@ export function HabitsView({
             </table>
           </div>
         ) : (
-          <p className="v2-empty-state">The rhythm will appear after the first habit is added.</p>
+          <p className="v2-empty-state">{copy.habits.rhythm.empty}</p>
         )}
       </section>
 
@@ -887,37 +930,37 @@ export function HabitsView({
         <div className="v2-inline-add__heading">
           <Plus size={20} weight="bold" aria-hidden="true" />
           <div>
-            <h2 id="v2-add-habit-title">Add a habit</h2>
-            <p>Name the habit and the version that still works on a low-energy day.</p>
+            <h2 id="v2-add-habit-title">{copy.habits.add.title}</h2>
+            <p>{copy.habits.add.description}</p>
           </div>
         </div>
         <div className="v2-inline-add__fields">
           <div className="v2-field-group">
-            <label htmlFor={habitNameId}>Habit name</label>
+            <label htmlFor={habitNameId}>{copy.habits.add.name}</label>
             <input
               id={habitNameId}
               className="v2-field"
               value={habitName}
               onChange={(event) => setHabitName(event.target.value)}
               maxLength={NOOK_INPUT_LIMITS.habitLabel}
-              placeholder="Name a repeatable action"
+              placeholder={copy.habits.add.namePlaceholder}
               autoComplete="off"
             />
           </div>
           <div className="v2-field-group v2-field-group--wide">
-            <label htmlFor={minimumId}>Minimum version</label>
+            <label htmlFor={minimumId}>{copy.habits.add.minimum}</label>
             <input
               id={minimumId}
               className="v2-field"
               value={minimum}
               onChange={(event) => setMinimum(event.target.value)}
               maxLength={NOOK_INPUT_LIMITS.habitMinimum}
-              placeholder="What is the smallest honest version?"
+              placeholder={copy.habits.add.minimumPlaceholder}
               autoComplete="off"
             />
           </div>
           <button type="submit" className="v2-button v2-button--primary" disabled={!habitName.trim() || !minimum.trim()}>
-            Add habit
+            {copy.habits.add.action}
           </button>
         </div>
       </form>
@@ -937,6 +980,7 @@ export function FocusView({
   sessions,
   timer,
 }: FocusViewProps) {
+  const { copy, formatDayKey, formatMinutes, formatNumber } = useNookI18n();
   const intentionId = useId();
   const distractionId = useId();
   const sessionNoteId = useId();
@@ -954,15 +998,15 @@ export function FocusView({
   const timerHasProgress = Boolean(timer.startedAt)
     && timer.remainingSeconds < timer.presetMinutes * 60;
   const timerActionLabel = timer.running
-    ? 'Pause'
+    ? copy.focus.timer.pause
     : timerHasProgress
-      ? 'Resume focus'
-      : 'Start focus';
+      ? copy.focus.timer.resume
+      : copy.focus.timer.start;
   const timerStatus = timer.running
-    ? 'running'
+    ? copy.focus.timer.running
     : timerHasProgress
-      ? 'paused'
-      : 'ready';
+      ? copy.focus.timer.paused
+      : copy.focus.timer.ready;
 
   function submitDistraction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -976,14 +1020,14 @@ export function FocusView({
     <div className="v2-view v2-focus-view">
       <header className="v2-view-header">
         <div className="v2-view-header__copy">
-          <p className="v2-view-header__date">{formatLongDay(dayKey)}</p>
-          <h1 className="v2-view-header__title">Protect one clear intention.</h1>
-          <p className="v2-view-header__description">The timer holds the boundary. Loose thoughts can wait in the distraction pad.</p>
+          <p className="v2-view-header__date">{formatDayKey(dayKey)}</p>
+          <h1 className="v2-view-header__title">{copy.focus.title}</h1>
+          <p className="v2-view-header__description">{copy.focus.description}</p>
         </div>
         {timer.running && (
           <span className="v2-live-status" role="status">
             <span className="v2-live-status__dot" aria-hidden="true" />
-            Session running
+            {copy.focus.sessionRunning}
           </span>
         )}
       </header>
@@ -991,8 +1035,8 @@ export function FocusView({
       <div className="v2-focus-view__grid">
         <section className="v2-focus-timer" aria-labelledby="v2-focus-timer-title">
           <div className="v2-focus-timer__topline">
-            <h2 id="v2-focus-timer-title">Focus timer</h2>
-            <div className="v2-focus-presets" aria-label="Focus duration presets">
+            <h2 id="v2-focus-timer-title">{copy.focus.timer.title}</h2>
+            <div className="v2-focus-presets" aria-label={copy.focus.timer.presetsLabel}>
               {FOCUS_PRESETS.map((minutes) => (
                 <button
                   key={minutes}
@@ -1002,25 +1046,28 @@ export function FocusView({
                   aria-pressed={timer.presetMinutes === minutes}
                   onClick={() => onSetPreset(minutes)}
                 >
-                  {minutes}m
+                  {formatNumber(minutes)} {copy.common.units.minuteShort}
                 </button>
               ))}
             </div>
           </div>
 
-          <p className="v2-focus-timer__digits" aria-label={`${formatTimer(timer.remainingSeconds)} remaining`}>
+          <p
+            className="v2-focus-timer__digits"
+            aria-label={copy.focus.timer.remaining(formatTimer(timer.remainingSeconds))}
+          >
             {formatTimer(timer.remainingSeconds)}
           </p>
 
           <div className="v2-field-group v2-field-group--on-dark">
-            <label htmlFor={intentionId}>Intention</label>
+            <label htmlFor={intentionId}>{copy.focus.timer.intention}</label>
             <input
               id={intentionId}
               className="v2-field v2-focus-timer__intention"
               value={timer.intention}
               onChange={(event) => onChangeIntention(event.target.value)}
               maxLength={NOOK_INPUT_LIMITS.focusIntention}
-              placeholder="What gets your full attention?"
+              placeholder={copy.focus.timer.intentionPlaceholder}
               autoComplete="off"
             />
           </div>
@@ -1032,25 +1079,30 @@ export function FocusView({
                 : <Play size={18} weight="bold" aria-hidden="true" />}
               {timerActionLabel}
             </button>
-            <button type="button" className="v2-icon-button v2-icon-button--on-dark" onClick={onResetTimer} aria-label="Reset focus timer">
+            <button
+              type="button"
+              className="v2-icon-button v2-icon-button--on-dark"
+              onClick={onResetTimer}
+              aria-label={copy.focus.timer.reset}
+            >
               <ArrowCounterClockwise size={19} weight="bold" aria-hidden="true" />
             </button>
           </div>
           <p className="v2-visually-hidden" role="status" aria-live="polite">
-            Focus timer {timerStatus}.
+            {copy.focus.timer.status(timerStatus)}
           </p>
         </section>
 
         <section className="v2-distraction-pad" aria-labelledby="v2-distraction-title">
           <div className="v2-section-heading">
             <div>
-              <h2 id="v2-distraction-title" className="v2-section-heading__title">Distraction pad</h2>
-              <p className="v2-section-heading__description">Capture it without leaving the session.</p>
+              <h2 id="v2-distraction-title" className="v2-section-heading__title">{copy.focus.distractions.title}</h2>
+              <p className="v2-section-heading__description">{copy.focus.distractions.description}</p>
             </div>
-            <span className="v2-measure">{timer.distractions.length}</span>
+            <span className="v2-measure">{formatNumber(timer.distractions.length)}</span>
           </div>
           <form className="v2-distraction-pad__capture" onSubmit={submitDistraction}>
-            <label htmlFor={distractionId}>Waiting thought</label>
+            <label htmlFor={distractionId}>{copy.focus.distractions.label}</label>
             <div className="v2-distraction-pad__field-row">
               <input
                 id={distractionId}
@@ -1058,10 +1110,15 @@ export function FocusView({
                 value={distractionDraft}
                 onChange={(event) => setDistractionDraft(event.target.value)}
                 maxLength={NOOK_INPUT_LIMITS.distraction}
-                placeholder="Park a thought for later"
+                placeholder={copy.focus.distractions.placeholder}
                 autoComplete="off"
               />
-              <button type="submit" className="v2-icon-button" disabled={!distractionDraft.trim()} aria-label="Add distraction">
+              <button
+                type="submit"
+                className="v2-icon-button"
+                disabled={!distractionDraft.trim()}
+                aria-label={copy.focus.distractions.add}
+              >
                 <Plus size={18} weight="bold" aria-hidden="true" />
               </button>
             </div>
@@ -1076,7 +1133,7 @@ export function FocusView({
                       type="button"
                       className="v2-icon-button"
                       onClick={() => onRemoveDistraction(index)}
-                      aria-label={`Remove distraction: ${distraction}`}
+                      aria-label={copy.focus.distractions.remove(distraction)}
                     >
                       <Trash size={15} weight="bold" aria-hidden="true" />
                     </button>
@@ -1085,25 +1142,25 @@ export function FocusView({
               ))}
             </ul>
           ) : (
-            <p className="v2-empty-state">Nothing is waiting here.</p>
+            <p className="v2-empty-state">{copy.focus.distractions.empty}</p>
           )}
         </section>
 
         <section className="v2-session-note" aria-labelledby="v2-session-note-title">
           <div className="v2-section-heading">
             <div>
-              <h2 id="v2-session-note-title" className="v2-section-heading__title">Session note</h2>
-              <p className="v2-section-heading__description">Keep the useful residue from this block.</p>
+              <h2 id="v2-session-note-title" className="v2-section-heading__title">{copy.focus.sessionNote.title}</h2>
+              <p className="v2-section-heading__description">{copy.focus.sessionNote.description}</p>
             </div>
           </div>
-          <label className="v2-visually-hidden" htmlFor={sessionNoteId}>Focus session note</label>
+          <label className="v2-visually-hidden" htmlFor={sessionNoteId}>{copy.focus.sessionNote.label}</label>
           <textarea
             id={sessionNoteId}
             className="v2-field v2-session-note__editor"
             value={timer.sessionNote}
             onChange={(event) => onChangeSessionNote(event.target.value)}
             maxLength={NOOK_INPUT_LIMITS.sessionNote}
-            placeholder="What changed, clarified, or should continue next time?"
+            placeholder={copy.focus.sessionNote.placeholder}
             spellCheck
           />
         </section>
@@ -1111,14 +1168,16 @@ export function FocusView({
         <section className="v2-focus-history" aria-labelledby="v2-focus-history-title">
           <div className="v2-section-heading">
             <div>
-              <h2 id="v2-focus-history-title" className="v2-section-heading__title">Seven-day focus history</h2>
-              <p className="v2-section-heading__description">Completed session minutes, recorded on this device.</p>
+              <h2 id="v2-focus-history-title" className="v2-section-heading__title">{copy.focus.history.title}</h2>
+              <p className="v2-section-heading__description">{copy.focus.history.description}</p>
             </div>
-            <span className="v2-measure">{historyTotal ? minutesLabel(historyTotal) : 'No sessions'}</span>
+            <span className="v2-measure">
+              {historyTotal ? formatMinutes(historyTotal) : copy.focus.history.noSessions}
+            </span>
           </div>
           {historyTotal > 0 ? (
             <>
-              <ol className="v2-focus-history__chart" aria-label="Focus minutes for the last seven days">
+              <ol className="v2-focus-history__chart" aria-label={copy.focus.history.chartLabel}>
                 {history.map((item) => (
                   <li key={item.dayKey} data-today={item.dayKey === dayKey ? 'true' : 'false'}>
                     <meter
@@ -1126,21 +1185,24 @@ export function FocusView({
                       min={0}
                       max={historyMaximum}
                       value={item.minutes}
-                      aria-label={`${formatArchiveDay(item.dayKey)}: ${minutesLabel(item.minutes)}`}
+                      aria-label={copy.focus.history.dayMinutes(
+                        formatDayKey(item.dayKey, 'archive'),
+                        formatMinutes(item.minutes),
+                      )}
                     />
-                    <span className="v2-focus-history__value">{item.minutes}</span>
-                    <span className="v2-focus-history__day">{formatWeekday(item.dayKey)}</span>
+                    <span className="v2-focus-history__value">{formatNumber(item.minutes)}</span>
+                    <span className="v2-focus-history__day">{formatDayKey(item.dayKey, 'weekdayShort')}</span>
                   </li>
                 ))}
               </ol>
               <p className="v2-focus-history__summary">
-                {completedSessionCount} completed {completedSessionCount === 1 ? 'session' : 'sessions'} in this window.
+                {copy.focus.history.completed(completedSessionCount)}
               </p>
             </>
           ) : (
             <div className="v2-empty-state v2-empty-state--history">
               <Timer size={24} weight="bold" aria-hidden="true" />
-              <p>No completed focus sessions are recorded in this seven-day window.</p>
+              <p>{copy.focus.history.empty}</p>
             </div>
           )}
         </section>
@@ -1150,32 +1212,50 @@ export function FocusView({
 }
 
 export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay, selectedDayKey }: NotesViewProps) {
+  const { copy, formatDayKey, locale } = useNookI18n();
   const dateId = useId();
   const searchId = useId();
   const [query, setQuery] = useState('');
   const selectedNote = notes.find((note) => note.dayKey === selectedDayKey);
   const selectedContent = selectedNote?.content ?? '';
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const normalizedQuery = query.trim().toLocaleLowerCase(locale);
   const archive = useMemo(() => (
     [...notes]
       .sort((left, right) => right.dayKey.localeCompare(left.dayKey))
       .filter((note) => (
         !normalizedQuery
         || note.dayKey.includes(normalizedQuery)
-        || note.content.toLocaleLowerCase().includes(normalizedQuery)
+        || note.content.toLocaleLowerCase(locale).includes(normalizedQuery)
       ))
-  ), [normalizedQuery, notes]);
+  ), [locale, normalizedQuery, notes]);
+  const noteTemplates = [
+    {
+      id: 'morning-plan' as const,
+      label: copy.notes.templates.morningPlan.label,
+      description: copy.notes.templates.morningPlan.description,
+    },
+    {
+      id: 'close-day' as const,
+      label: copy.notes.templates.closeDay.label,
+      description: copy.notes.templates.closeDay.description,
+    },
+    {
+      id: 'weekly-reflection' as const,
+      label: copy.notes.templates.weeklyReflection.label,
+      description: copy.notes.templates.weeklyReflection.description,
+    },
+  ] satisfies ReadonlyArray<{ id: NoteTemplateId; label: string; description: string }>;
 
   return (
     <div className="v2-view v2-notes-view">
       <header className="v2-view-header">
         <div className="v2-view-header__copy">
-          <p className="v2-view-header__date">{formatLongDay(selectedDayKey)}</p>
-          <h1 className="v2-view-header__title">A page for each day.</h1>
-          <p className="v2-view-header__description">Search the archive, choose a date, and keep the note on this device.</p>
+          <p className="v2-view-header__date">{formatDayKey(selectedDayKey)}</p>
+          <h1 className="v2-view-header__title">{copy.notes.title}</h1>
+          <p className="v2-view-header__description">{copy.notes.description}</p>
         </div>
         <div className="v2-notes-view__date-control">
-          <label htmlFor={dateId}>Note date</label>
+          <label htmlFor={dateId}>{copy.notes.date}</label>
           <input
             id={dateId}
             className="v2-field"
@@ -1190,35 +1270,39 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
         <section className="v2-note-editor" aria-labelledby="v2-note-editor-title">
           <div className="v2-note-editor__toolbar">
             <div>
-              <h2 id="v2-note-editor-title">{formatArchiveDay(selectedDayKey)}</h2>
-              <p>{countWords(selectedContent)} words</p>
+              <h2 id="v2-note-editor-title">{formatDayKey(selectedDayKey, 'archive')}</h2>
+              <p>{copy.common.units.words(countWords(selectedContent))}</p>
             </div>
-            <span className="v2-local-label"><NotePencil size={15} weight="bold" aria-hidden="true" /> Local note</span>
+            <span className="v2-local-label">
+              <NotePencil size={15} weight="bold" aria-hidden="true" /> {copy.notes.localNote}
+            </span>
           </div>
-          <label className="v2-visually-hidden" htmlFor={`${dateId}-editor`}>Daily note for {formatArchiveDay(selectedDayKey)}</label>
+          <label className="v2-visually-hidden" htmlFor={`${dateId}-editor`}>
+            {copy.notes.dailyNote(formatDayKey(selectedDayKey, 'archive'))}
+          </label>
           <textarea
             id={`${dateId}-editor`}
             className="v2-field v2-note-editor__textarea"
             value={selectedContent}
             onChange={(event) => onChangeContent(selectedDayKey, event.target.value)}
             maxLength={NOOK_INPUT_LIMITS.noteContent}
-            placeholder="Write one line worth finding again. Markdown is welcome."
+            placeholder={copy.notes.placeholder}
             spellCheck
           />
-          <p className="v2-note-editor__save-note" role="status">Changes stay on this device.</p>
+          <p className="v2-note-editor__save-note" role="status">{copy.notes.saveNote}</p>
         </section>
 
         <aside className="v2-note-archive" aria-labelledby="v2-note-archive-title">
           <div className="v2-section-heading">
             <div>
-              <h2 id="v2-note-archive-title" className="v2-section-heading__title">Archive</h2>
-              <p className="v2-section-heading__description">{notes.length} dated {notes.length === 1 ? 'note' : 'notes'}</p>
+              <h2 id="v2-note-archive-title" className="v2-section-heading__title">{copy.notes.archive.title}</h2>
+              <p className="v2-section-heading__description">{copy.notes.archive.datedNotes(notes.length)}</p>
             </div>
             <Archive size={21} weight="bold" aria-hidden="true" />
           </div>
           <div className="v2-search-field">
             <MagnifyingGlass size={17} weight="bold" aria-hidden="true" />
-            <label className="v2-visually-hidden" htmlFor={searchId}>Search notes</label>
+            <label className="v2-visually-hidden" htmlFor={searchId}>{copy.notes.archive.searchLabel}</label>
             <input
               id={searchId}
               className="v2-field"
@@ -1226,7 +1310,7 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               maxLength={500}
-              placeholder="Search dates or words"
+              placeholder={copy.notes.archive.searchPlaceholder}
             />
           </div>
           {archive.length ? (
@@ -1242,9 +1326,11 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
                       aria-pressed={note.dayKey === selectedDayKey}
                       onClick={() => onSelectDay(note.dayKey)}
                     >
-                      <span className="v2-note-archive__date">{formatArchiveDay(note.dayKey)}</span>
-                      <span className="v2-note-archive__preview">{preview || 'Empty note'}</span>
-                      <span className="v2-note-archive__words">{countWords(note.content)} words</span>
+                      <span className="v2-note-archive__date">{formatDayKey(note.dayKey, 'archive')}</span>
+                      <span className="v2-note-archive__preview">{preview || copy.notes.archive.emptyNote}</span>
+                      <span className="v2-note-archive__words">
+                        {copy.common.units.words(countWords(note.content))}
+                      </span>
                     </button>
                   </li>
                 );
@@ -1252,7 +1338,7 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
             </ul>
           ) : (
             <p className="v2-empty-state" role="status">
-              {notes.length ? 'No notes match this search.' : 'No dated notes yet.'}
+              {notes.length ? copy.notes.archive.noMatch : copy.notes.archive.empty}
             </p>
           )}
         </aside>
@@ -1260,11 +1346,11 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
 
       <PremiumPreview
         className="v2-note-templates"
-        title="Note templates"
-        description="Templates add structure only. They do not generate content or send note text away."
+        title={copy.notes.templates.title}
+        description={copy.notes.templates.description}
       >
         <div className="v2-note-templates__list">
-          {NOTE_TEMPLATES.map((template) => (
+          {noteTemplates.map((template) => (
             <button
               key={template.id}
               type="button"

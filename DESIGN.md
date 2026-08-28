@@ -23,11 +23,11 @@ colors:
   focus-ring: "#aa70ff"
 typography:
   display:
-    fontFamily: "Geist, Helvetica Neue, sans-serif"
+    fontFamily: "1FTV Wolfers, Helvetica Neue, sans-serif"
     fontSize: "clamp(1.8rem, 3vw, 2.7rem)"
-    fontWeight: 600
-    lineHeight: 1.1
-    letterSpacing: "-0.055em"
+    fontWeight: 400
+    lineHeight: 1.04
+    letterSpacing: "0.005em"
   title:
     fontFamily: "Geist, Helvetica Neue, sans-serif"
     fontSize: "1.25rem"
@@ -45,7 +45,7 @@ typography:
     fontWeight: 600
     lineHeight: 1.4
   mono:
-    fontFamily: "Geist Mono, SFMono-Regular, monospace"
+    fontFamily: "Nook Mono, Nook Mono Ext, Geist Mono, SFMono-Regular, monospace"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.5
@@ -104,7 +104,9 @@ generic flat or desaturated dashboard.
 - Warm paper shell with a strong charcoal navigation and timer anchor
 - One electric chartreuse accent repeated on decisive states
 - One generous lavender field for the habit ritual
+- A branded aperture reveal that opens into the private desk
 - A compact liquid-glass dock whose moving lens previews each destination
+- Direction-aware tab movement that preserves spatial orientation
 - Soft 26–30px containers and compact pill-shaped actions
 - Playful details held inside a quiet, highly usable layout
 - Anonymous, specific, privacy-forward product copy
@@ -149,14 +151,16 @@ behave as wayfinding light, not as five competing page themes.
 
 ## Typography
 
-**Display Font:** Geist
+**Display Font:** 1FTV Wolfers
 **Body Font:** Geist
 **Measured Font:** Geist Mono
 
-Geist keeps the tool contemporary and direct. Tight display tracking gives the
-greeting personality, while small uppercase eyebrow labels establish the
-original card rhythm. Mono belongs to timer numerals, Markdown, shortcuts, and
-measured data.
+Wolfers is reserved for true display moments: primary view titles, onboarding,
+dialog titles, and the quiet next-move statement. It stays at its native 400
+weight with neutral tracking so Vietnamese letters and diacritics retain room.
+The locally bundled full Geist face carries body copy, section headings, labels,
+buttons, and navigation in both English and Vietnamese. Mono belongs to timer
+numerals, Markdown, shortcuts, and measured data.
 
 ## Layout
 
@@ -167,6 +171,9 @@ full lavender ritual; Focus combines Deep Focus with Focus Rhythm; Notes owns
 the daily Markdown surface and local backup. The fixed bottom dock keeps Home
 in the middle, with Today/Habits to its left and Focus/Notes to its right.
 Mobile preserves the same order and reserves safe-area clearance for the dock.
+English is the default interface language; English and Vietnamese share the
+same layouts, hierarchy, and controls. Containers must absorb translated copy
+without truncating actions or changing the five-view order.
 
 **The Home First-Viewport Rule.** At phone widths, compress the factual Day Arc
 to a two-by-two summary so the complete next quiet move and its action remain
@@ -212,8 +219,24 @@ every breakpoint, including while it is dragged between destinations.
   a pointer-captured drag, commits that destination on release, then settles in
   about 360ms. Click remains direct selection.
 - Labels remain visible; the selected Focus tab may show a live timer dot.
+- Destination content arrives from the direction of travel: forward tabs move
+  in from the right and backward tabs from the left. The transition is short
+  and orienting, never a carousel or a gesture-only interaction.
 - Arrow keys move between tabs, Home/End jump to the ends, and reduced-motion,
   reduced-transparency, and forced-color modes receive explicit fallbacks.
+
+### Launch & Onboarding
+
+- A cold launch opens Nook's bundled mark from a narrow charcoal aperture,
+  followed by the wordmark and localized tagline. It is a brief brand cue, not
+  a simulated network-loading delay or progress claim.
+- First-run onboarding is a focused three-step dialog. Language choice leads
+  step one, Skip stays available throughout, and the final chartreuse action
+  opens Morning Plan.
+- English and Tiếng Việt remain visible as explicit choices. Replaying the
+  introduction from Settings preserves current data.
+- Reduced motion removes aperture and directional movement, retaining only a
+  brief opacity fade for continuity.
 
 ### Inputs / Fields
 
@@ -236,6 +259,8 @@ accessible label and is never the only carrier of meaning.
 - **Do** keep anonymous greeting and honest empty/zero first-run data.
 - **Do** retain the stronger accessible secondary-text contrast.
 - **Do** verify light/dark, mobile, keyboard, and reduced-motion behavior.
+- **Do** test English and Vietnamese copy, date/number formatting, focus order,
+  and translated action wrapping at desktop and phone widths.
 - **Do** keep Home as a concise launchpad rather than a duplicate dashboard.
 
 ### Don’t:
@@ -246,4 +271,6 @@ accessible label and is never the only carrier of meaning.
   satisfy a generic design rule.
 - **Don’t** fabricate activity, progress, endorsements, or personal identity.
 - **Don’t** add remote assets or dependencies merely for decoration.
+- **Don’t** force existing users through onboarding or use launch motion to
+  imply remote loading, synchronization, or account setup.
 - **Don’t** place all five primary functions back into one scrolling page.

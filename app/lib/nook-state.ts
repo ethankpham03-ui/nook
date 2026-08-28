@@ -29,6 +29,7 @@ export type TaskLane = 'anchor' | 'support' | 'optional';
 export type FocusSessionStatus = 'completed' | 'interrupted';
 export type FocusTimerStatus = 'idle' | 'running' | 'paused';
 export type EnergyLevel = 'low' | 'steady' | 'bright';
+export type Language = 'en' | 'vi';
 
 export type ChecklistItem = {
   id: string;
@@ -127,6 +128,8 @@ export type FocusTimer = {
 
 export type NookSettings = {
   dark: boolean;
+  language: Language;
+  onboardingCompleted: boolean;
 };
 
 export type NookSnapshot = {
@@ -378,7 +381,11 @@ export function DEFAULT_SNAPSHOT(now: DateInput = new Date()): NookSnapshot {
     focusSessions: [],
     focusTimer: createFocusTimer(25),
     selectedTaskId: null,
-    settings: { dark: false },
+    settings: {
+      dark: false,
+      language: 'en',
+      onboardingCompleted: false,
+    },
     legacyWeekMinutes: null,
   };
 }
@@ -412,6 +419,11 @@ function readNullableString(value: unknown, path: string, maximum: number): stri
 
 function readBoolean(value: unknown, path: string): boolean {
   if (typeof value !== 'boolean') fail(`${path} must be a boolean`);
+  return value;
+}
+
+function readLanguage(value: unknown, path: string): Language {
+  if (value !== 'en' && value !== 'vi') fail(`${path} must be either en or vi`);
   return value;
 }
 
@@ -675,7 +687,17 @@ export function parseV2Snapshot(value: unknown): NookSnapshot {
     focusSessions,
     focusTimer: parseFocusTimer(snapshot.focusTimer, 'snapshot.focusTimer'),
     selectedTaskId: selectedTaskId && tasks.some((task) => task.id === selectedTaskId) ? selectedTaskId : null,
-    settings: { dark: readBoolean(settings.dark, 'snapshot.settings.dark') },
+    settings: {
+      dark: readBoolean(settings.dark, 'snapshot.settings.dark'),
+      // These settings were added without changing the v2 schema. Missing values
+      // identify an existing installation, which should not be sent through onboarding.
+      language: settings.language === undefined
+        ? 'en'
+        : readLanguage(settings.language, 'snapshot.settings.language'),
+      onboardingCompleted: settings.onboardingCompleted === undefined
+        ? true
+        : readBoolean(settings.onboardingCompleted, 'snapshot.settings.onboardingCompleted'),
+    },
     legacyWeekMinutes: parseLegacyWeekMinutes(snapshot.legacyWeekMinutes, 'snapshot.legacyWeekMinutes'),
   };
 }
@@ -775,6 +797,8 @@ export function migrateV1Snapshot(value: unknown, options: ParseOptions = {}): N
     selectedTaskId: selectedTaskId && tasks.some((task) => task.id === selectedTaskId) ? selectedTaskId : null,
     settings: {
       dark: legacy.dark === undefined ? false : readBoolean(legacy.dark, 'v1.dark'),
+      language: 'en',
+      onboardingCompleted: true,
     },
     legacyWeekMinutes,
   };
