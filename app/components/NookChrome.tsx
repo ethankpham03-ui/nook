@@ -26,8 +26,10 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
+  RefObject,
 } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNookI18n } from '../lib/i18n';
 import type { DailyRecord, Language, Tab } from '../lib/nook-state';
 
@@ -323,11 +325,16 @@ type DialogFrameProps = {
   descriptionId: string;
   closeLabel: string;
   className?: string;
+  initialFocusRef?: RefObject<HTMLElement | null>;
   onClose: () => void;
   children: ReactNode;
 };
 
-function useDialogAccessibility(open: boolean, onClose: () => void) {
+function useDialogAccessibility(
+  open: boolean,
+  onClose: () => void,
+  initialFocusRef?: RefObject<HTMLElement | null>,
+) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -342,7 +349,9 @@ function useDialogAccessibility(open: boolean, onClose: () => void) {
     const previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    const focusFrame = window.requestAnimationFrame(() => (
+      initialFocusRef?.current ?? closeButtonRef.current
+    )?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -379,29 +388,32 @@ function useDialogAccessibility(open: boolean, onClose: () => void) {
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();
     };
-  }, [open]);
+  }, [initialFocusRef, open]);
 
   return { dialogRef, closeButtonRef };
 }
 
-function DialogFrame({
+export function DialogFrame({
   open,
   titleId,
   descriptionId,
   closeLabel,
   className = '',
+  initialFocusRef,
   onClose,
   children,
 }: DialogFrameProps) {
-  const { dialogRef, closeButtonRef } = useDialogAccessibility(open, onClose);
+  const { dialogRef, closeButtonRef } = useDialogAccessibility(open, onClose, initialFocusRef);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   function closeFromBackdrop(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.target === event.currentTarget) onClose();
   }
 
-  return (
+  const portalRoot = document.querySelector('.nook-app') ?? document.body;
+
+  return createPortal(
     <div className="v2-dialog-backdrop" onPointerDown={closeFromBackdrop}>
       <div
         ref={dialogRef}
@@ -423,7 +435,8 @@ function DialogFrame({
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    portalRoot,
   );
 }
 

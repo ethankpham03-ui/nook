@@ -1032,7 +1032,7 @@ export default function NookPage() {
                     onFocusTask={focusTask}
                   />
                   <PremiumPreview
-                    className="v2-owner-tool"
+                    className="v2-owner-tool v3-today-replan"
                     title={copy.premium.replan.title}
                     description={copy.premium.replan.description}
                   >
@@ -1060,7 +1060,7 @@ export default function NookPage() {
                     onToggleToday={toggleHabitToday}
                   />
                   <PremiumPreview
-                    className="v2-owner-tool"
+                    className="v2-owner-tool v3-habit-routine"
                     title={copy.premium.routine.title}
                     description={copy.premium.routine.description}
                   >
@@ -1128,7 +1128,7 @@ export default function NookPage() {
                     } : current)}
                   />
                   <PremiumPreview
-                    className="v2-owner-tool"
+                    className="v2-owner-tool v3-focus-profiles"
                     title={copy.premium.profiles.title}
                     description={copy.premium.profiles.description}
                   >

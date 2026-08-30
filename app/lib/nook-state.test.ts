@@ -7,6 +7,7 @@ import {
   NookStateError,
   addDays,
   createFocusTimer,
+  currentHabitStreak,
   deriveFocusCompletionTiming,
   deriveDailyMetrics,
   isDayKey,
@@ -144,6 +145,32 @@ test('day and Monday-based week helpers use local calendar arithmetic', () => {
     '2026-08-29',
     '2026-08-30',
   ]);
+});
+
+test('habit streak keeps the open current day, stops at gaps, and caps at seven', () => {
+  const habitLog = (dayKey: string, value = 1): HabitLog => ({
+    id: `habit-1:${dayKey}`,
+    habitId: 'habit-1',
+    dayKey,
+    value,
+    completedAt: value > 0 ? NOW_ISO : null,
+    note: '',
+    createdAt: NOW_ISO,
+    updatedAt: NOW_ISO,
+  });
+  const eightCheckedDays = Array.from({ length: 8 }, (_, index) => habitLog(addDays(TODAY, -index)));
+
+  assert.equal(currentHabitStreak('habit-1', eightCheckedDays, TODAY), 7);
+  assert.equal(currentHabitStreak('habit-1', [
+    habitLog(TODAY, 0),
+    habitLog(addDays(TODAY, -1)),
+    habitLog(addDays(TODAY, -2)),
+  ], TODAY), 2);
+  assert.equal(currentHabitStreak('habit-1', [
+    habitLog(TODAY),
+    habitLog(addDays(TODAY, -2)),
+  ], TODAY), 1);
+  assert.equal(currentHabitStreak('another-habit', eightCheckedDays, TODAY), 0);
 });
 
 test('running focus timer derives remaining time from endsAt rather than interval ticks', () => {

@@ -313,6 +313,38 @@ export function addDays(dayKey: string, amount: number): string {
   return toDayKey(date);
 }
 
+/**
+ * Counts the current consecutive habit check-ins, capped for bounded UI such as
+ * the seven-fruit rhythm tree. An unchecked current day does not break the
+ * previous streak while that day's check-in window is still open.
+ */
+export function currentHabitStreak(
+  habitId: string,
+  habitLogs: readonly HabitLog[],
+  dayKey: string,
+  maximumDays = 7,
+): number {
+  if (!isDayKey(dayKey)) fail(`Invalid day key: ${String(dayKey)}`);
+  if (!Number.isInteger(maximumDays) || maximumDays < 1) {
+    fail('maximumDays must be a positive integer');
+  }
+
+  const checkedDays = new Set(
+    habitLogs
+      .filter((log) => log.habitId === habitId && log.value > 0 && isDayKey(log.dayKey))
+      .map((log) => log.dayKey),
+  );
+  let cursor = checkedDays.has(dayKey) ? dayKey : addDays(dayKey, -1);
+  let streak = 0;
+
+  while (streak < maximumDays && checkedDays.has(cursor)) {
+    streak += 1;
+    cursor = addDays(cursor, -1);
+  }
+
+  return streak;
+}
+
 /** weekStartsOn follows JavaScript weekday numbering: Sunday=0, Monday=1. */
 export function weekStartDayKey(dayKey: string, weekStartsOn = 1): string {
   if (!Number.isInteger(weekStartsOn) || weekStartsOn < 0 || weekStartsOn > 6) {

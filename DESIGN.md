@@ -37,21 +37,21 @@ typography:
     wordSpacing: "0.04em"
   body:
     fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
-    fontSize: "0.9375rem"
+    fontSize: "1.1rem"
     fontWeight: 400
     lineHeight: 1.6
     letterSpacing: "0.04em"
     wordSpacing: "0.04em"
   label:
     fontFamily: "1FTV Coolvetica Condensed Rg, Geist, Helvetica Neue, sans-serif"
-    fontSize: "0.75rem"
+    fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.4
     letterSpacing: "0.04em"
     wordSpacing: "0.04em"
   mono:
     fontFamily: "Nook Mono, Nook Mono Ext, Geist Mono, SFMono-Regular, monospace"
-    fontSize: "0.75rem"
+    fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
 rounded:
@@ -182,10 +182,21 @@ English is the default interface language; English and Vietnamese share the
 same layouts, hierarchy, and controls. Containers must absorb translated copy
 without truncating actions or changing the five-view order.
 
+**Five Rooms, Five Grammars.** Cards are components, not the page scaffold.
+Each destination must be recognizable from its spatial landmarks before its
+copy is read: Home is a station journey beside one directional beacon; Today
+is a vertical dayline with three priority stops; Habits is one lavender field
+of circular orbits; Focus is one continuous charcoal instrument chamber; and
+Notes is an open paper spread with a visible archive spine and a ruled template
+index. Shared controls keep their behavior, but the five views must not be
+normalized back into the same grid of rounded rectangles.
+
 **The Home First-Viewport Rule.** At phone widths, compress the factual Day Arc
 to a two-by-two summary so the complete next quiet move and its action remain
 visible above the dock at the 390×844 reference viewport. Supporting Day Arc
-description may recede; its current states and labels may not.
+description may recede; its current states and labels may not. Each Day Arc
+stage keeps its directional arrow beside the stage label so the action reads as
+one unit at every breakpoint.
 
 ## Elevation & Depth
 
@@ -215,11 +226,13 @@ Notes opens editor and archive from their spatial relationship.
 
 ## Shapes
 
-The outer shell uses a 30px radius. Major content cards use 26px. Dialogs use
-22–24px. Inputs use 12px. Primary actions, utility controls, task checks, timer
-presets, and status badges use pill or circular geometry. The softness is a
-core part of the product’s character. The active dock lens remains circular at
-every breakpoint, including while it is dragged between destinations.
+The outer shell uses a 30px radius. Dialogs use 22–24px. Inputs use 12px.
+Primary actions, utility controls, task checks, timer presets, and status badges
+use pill or circular geometry. Large authored regions may use asymmetric
+28–92px corners to create landmarks; repeated content does not automatically
+receive a rounded card. The softness is a core part of the product’s character.
+The active dock lens remains circular at every breakpoint, including while it
+is dragged between destinations.
 
 ## Components
 
@@ -232,9 +245,20 @@ every breakpoint, including while it is dragged between destinations.
 
 ### Cards / Containers
 
-- **Task / Note / Rhythm:** warm white or paper, 26px radius, quiet border.
-- **Focus:** charcoal, faint grid, restrained lime glow.
-- **Habits:** full lavender container with translucent white inner tiles.
+- **Use cards selectively:** reserve a closed region for content that truly
+  belongs together; do not wrap every section simply to create spacing.
+- **Today:** tasks live on one open dayline, separated by priority stops and
+  rules rather than three interchangeable cards. Capacity and the complete
+  dayline appear before task creation. Task creation is progressive disclosure:
+  one action directly below the dayline opens an accessible dialog instead of
+  reserving a permanent page section for the form.
+- **Notes:** editor and archive share one paper spread; template actions form a
+  ruled insertion index with small semantic color marks, never a second card
+  grid or three full-width color panels.
+- **Focus:** one charcoal chamber with a faint grid and restrained lime glow.
+- **Habits:** one full lavender field: circular minimum-version habit orbits
+  first, followed by an open grove of seven-fruit streak trees. Each earned day
+  grows one fruit; completed seven-day rhythms carry a small flame.
 
 ### Floating Navigation
 
@@ -295,6 +319,7 @@ accessible label and is never the only carrier of meaning.
 - **Do** test English and Vietnamese copy, date/number formatting, focus order,
   and translated action wrapping at desktop and phone widths.
 - **Do** keep Home as a concise launchpad rather than a duplicate dashboard.
+- **Do** preserve a distinct spatial landmark and layout grammar for every tab.
 
 ### Don’t:
 
@@ -307,3 +332,5 @@ accessible label and is never the only carrier of meaning.
 - **Don’t** force existing users through onboarding or use launch motion to
   imply remote loading, synchronization, or account setup.
 - **Don’t** place all five primary functions back into one scrolling page.
+- **Don’t** use the same rounded-card grid as the default composition for every
+  destination.

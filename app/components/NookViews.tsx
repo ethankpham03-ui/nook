@@ -4,28 +4,33 @@ import { Archive } from '@phosphor-icons/react/Archive';
 import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
 import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
 import { CalendarBlank } from '@phosphor-icons/react/CalendarBlank';
+import { CalendarDots } from '@phosphor-icons/react/CalendarDots';
 import { Check } from '@phosphor-icons/react/Check';
 import { Circle } from '@phosphor-icons/react/Circle';
-import { Clock } from '@phosphor-icons/react/Clock';
 import { Compass } from '@phosphor-icons/react/Compass';
+import { Fire } from '@phosphor-icons/react/Fire';
 import { Gauge } from '@phosphor-icons/react/Gauge';
 import { Leaf } from '@phosphor-icons/react/Leaf';
 import { MagnifyingGlass } from '@phosphor-icons/react/MagnifyingGlass';
-import { Minus } from '@phosphor-icons/react/Minus';
+import { MoonStars } from '@phosphor-icons/react/MoonStars';
 import { NotePencil } from '@phosphor-icons/react/NotePencil';
 import { Pause } from '@phosphor-icons/react/Pause';
 import { Play } from '@phosphor-icons/react/Play';
 import { Plus } from '@phosphor-icons/react/Plus';
 import { Sparkle } from '@phosphor-icons/react/Sparkle';
+import { SunHorizon } from '@phosphor-icons/react/SunHorizon';
 import { Timer } from '@phosphor-icons/react/Timer';
 import { Trash } from '@phosphor-icons/react/Trash';
+import type { Icon } from '@phosphor-icons/react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNookI18n } from '../lib/i18n';
 import type { Language, NookCopy } from '../lib/i18n';
+import { DialogFrame } from './NookChrome';
 import {
   NOOK_INPUT_LIMITS,
   TASK_MINUTES_INPUT,
+  currentHabitStreak,
   normalizeTaskMinutesInput,
 } from '../lib/nook-state';
 import type {
@@ -200,22 +205,6 @@ function logValueFor(habitLogs: readonly HabitLog[], habitId: string, dayKey: st
   ), 0);
 }
 
-type HabitRhythmState = 'checked' | 'not-checked' | 'unknown';
-
-function habitRhythmState(
-  habit: Habit,
-  habitLogs: readonly HabitLog[],
-  dayKey: string,
-): HabitRhythmState {
-  const log = habitLogs.find((entry) => entry.habitId === habit.id && entry.dayKey === dayKey);
-  if (log) return log.value > 0 ? 'checked' : 'not-checked';
-  if (!habit.createdAt) return 'unknown';
-
-  const createdAt = new Date(habit.createdAt);
-  if (!Number.isFinite(createdAt.getTime())) return 'unknown';
-  return toDayKey(createdAt) > dayKey ? 'unknown' : 'not-checked';
-}
-
 function meaningfulMarkdown(value: string) {
   if (/^#{1,6}\s+today\s*$/i.test(value.trim())) return '';
   return value
@@ -230,6 +219,84 @@ function taskLaneCopy(copy: NookCopy, lane: TaskLane) {
     label: copy.today.lanes.fallback,
     description: '',
   };
+}
+
+const HABIT_TREE_FRUITS = [
+  { cx: 94, cy: 154, tone: 'lime' },
+  { cx: 205, cy: 158, tone: 'lavender' },
+  { cx: 62, cy: 116, tone: 'peach' },
+  { cx: 228, cy: 116, tone: 'neutral' },
+  { cx: 86, cy: 77, tone: 'lavender' },
+  { cx: 194, cy: 73, tone: 'peach' },
+  { cx: 140, cy: 45, tone: 'lime' },
+] as const;
+
+interface HabitRhythmTreeProps {
+  actionLabel: string;
+  checkedToday: boolean;
+  habitLabel: string;
+  onToggle: () => void;
+  streak: number;
+  streakLabel: string;
+}
+
+function HabitRhythmTree({
+  actionLabel,
+  checkedToday,
+  habitLabel,
+  onToggle,
+  streak,
+  streakLabel,
+}: HabitRhythmTreeProps) {
+  const fruitCount = Math.min(HABIT_TREE_FRUITS.length, Math.max(0, streak));
+  const complete = fruitCount === HABIT_TREE_FRUITS.length;
+
+  return (
+    <li className="v3-rhythm-tree" data-complete={complete ? 'true' : 'false'}>
+      <button
+        type="button"
+        className="v3-rhythm-tree__button"
+        onClick={onToggle}
+        aria-label={`${actionLabel}. ${streakLabel}`}
+        aria-pressed={checkedToday}
+      >
+        <span className="v3-rhythm-tree__visual" aria-hidden="true">
+          <svg viewBox="0 0 280 270" focusable="false">
+            <path
+              className="v3-rhythm-tree__canopy"
+              d="M138 26C160 5 191 13 200 42C230 33 257 52 256 81C279 94 278 125 260 141C270 169 249 192 221 190C206 211 178 211 158 196C139 212 110 208 96 189C68 200 42 183 43 159C17 147 15 116 35 99C27 72 49 50 77 54C85 28 114 15 138 26Z"
+            />
+            <path className="v3-rhythm-tree__branch" d="M132 190C119 157 94 137 69 128" />
+            <path className="v3-rhythm-tree__branch" d="M145 191C157 157 178 134 207 116" />
+            <path
+              className="v3-rhythm-tree__trunk"
+              d="M107 251C123 226 128 203 118 176C124 164 136 164 142 178L146 189C163 181 178 168 191 154L204 168C187 186 168 200 151 208C147 222 152 238 160 251Z"
+            />
+            <path className="v3-rhythm-tree__leaf" d="M144 70C151 57 162 53 174 55C171 68 161 76 148 77Z" />
+            <path className="v3-rhythm-tree__leaf" d="M54 108C66 100 79 102 88 111C77 120 64 120 54 108Z" />
+            <path className="v3-rhythm-tree__leaf" d="M109 145C116 132 128 127 140 131C136 144 126 151 113 152Z" />
+            {HABIT_TREE_FRUITS.map((fruit, index) => (
+              <circle
+                key={`${fruit.cx}-${fruit.cy}`}
+                className={`v3-rhythm-tree__fruit v3-rhythm-tree__fruit--${fruit.tone}`}
+                cx={fruit.cx}
+                cy={fruit.cy}
+                r="16.5"
+                data-visible={index < fruitCount ? 'true' : 'false'}
+              />
+            ))}
+          </svg>
+          <span className="v3-rhythm-tree__flame">
+            <Fire size={18} weight="fill" />
+          </span>
+        </span>
+        <span className="v3-rhythm-tree__copy">
+          <strong>{habitLabel}</strong>
+          <span>{streakLabel}</span>
+        </span>
+      </button>
+    </li>
+  );
 }
 
 export function PremiumPreview({ children, className = '', description, title }: PremiumPreviewProps) {
@@ -472,10 +539,12 @@ export function HomeView({
                     {stage.complete ? <Check size={15} weight="bold" /> : <Circle size={12} weight="bold" />}
                   </span>
                   <span className="v2-day-arc__step-copy">
-                    <strong>{stage.label}</strong>
+                    <span className="v2-day-arc__step-title">
+                      <strong>{stage.label}</strong>
+                      <ArrowRight className="v2-day-arc__step-arrow" size={15} weight="bold" aria-hidden="true" />
+                    </span>
                     <span>{stage.detail}</span>
                   </span>
-                  <ArrowRight className="v2-day-arc__step-arrow" size={15} weight="bold" aria-hidden="true" />
                 </button>
               </li>
             ))}
@@ -600,7 +669,10 @@ export function TodayView({
   const laneId = useId();
   const capacityId = useId();
   const firstAnchorId = useId();
+  const captureTitleId = useId();
+  const captureDescriptionId = useId();
   const taskTitleRef = useRef<HTMLInputElement>(null);
+  const [captureOpen, setCaptureOpen] = useState(guideAnchor);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskCategory, setTaskCategory] = useState('');
   const [taskMinutes, setTaskMinutes] = useState(String(TASK_MINUTES_INPUT.defaultValue));
@@ -614,25 +686,21 @@ export function TodayView({
   const capacityMinutes = Math.max(0, dailyRecord?.capacityMinutes ?? 0);
   const overCapacityBy = capacityMinutes ? Math.max(0, plannedMinutes - capacityMinutes) : 0;
 
-  useEffect(() => {
-    if (!guideAnchor) return;
-    const frame = window.requestAnimationFrame(() => taskTitleRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, [guideAnchor]);
-
   function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = taskTitle.trim();
     if (!title) return;
 
-    onAddTask({
+    const input = {
       title,
       category: taskCategory.trim(),
       minutes: normalizeTaskMinutesInput(taskMinutes),
       lane: taskLane,
-    });
+    } satisfies NewTaskInput;
     setTaskTitle('');
     setTaskMinutes(String(TASK_MINUTES_INPUT.defaultValue));
+    setCaptureOpen(false);
+    onAddTask(input);
   }
 
   return (
@@ -683,90 +751,6 @@ export function TodayView({
         />
         <p className="v2-capacity__completed">{copy.today.capacity.completed(formatMinutes(completedMinutes))}</p>
       </section>
-
-      <form
-        className="v2-quick-capture"
-        onSubmit={submitTask}
-        noValidate
-        aria-labelledby="v2-quick-capture-title"
-        data-first-use={todayTasks.length === 0 ? 'true' : undefined}
-        data-guided={guideAnchor ? 'true' : undefined}
-      >
-        <div className="v2-quick-capture__heading">
-          <Plus size={20} weight="bold" aria-hidden="true" />
-          <div>
-            <h2 id="v2-quick-capture-title">
-              {todayTasks.length === 0 ? copy.today.firstAnchor.title : copy.today.capture.title}
-            </h2>
-            {todayTasks.length === 0 && (
-              <p id={firstAnchorId} className="v3-anchor-guide__description">
-                {copy.today.firstAnchor.description}
-              </p>
-            )}
-          </div>
-        </div>
-        {todayTasks.length === 0 && (
-          <p className="v3-anchor-guide__lane-key">{copy.today.firstAnchor.laneGuide}</p>
-        )}
-        <div className="v2-quick-capture__fields">
-          <div className="v2-field-group v2-field-group--wide">
-            <label htmlFor={titleId}>{copy.today.capture.task}</label>
-            <input
-              ref={taskTitleRef}
-              id={titleId}
-              className="v2-field"
-              value={taskTitle}
-              onChange={(event) => setTaskTitle(event.target.value)}
-              maxLength={NOOK_INPUT_LIMITS.taskTitle}
-              placeholder={copy.today.capture.taskPlaceholder}
-              aria-describedby={todayTasks.length === 0 ? firstAnchorId : undefined}
-              autoComplete="off"
-            />
-          </div>
-          <div className="v2-field-group">
-            <label htmlFor={categoryId}>{copy.today.capture.category}</label>
-            <input
-              id={categoryId}
-              className="v2-field"
-              value={taskCategory}
-              onChange={(event) => setTaskCategory(event.target.value)}
-              maxLength={NOOK_INPUT_LIMITS.taskCategory}
-              placeholder={copy.today.capture.categoryPlaceholder}
-              autoComplete="off"
-            />
-          </div>
-          <div className="v2-field-group">
-            <label htmlFor={minutesId}>{copy.today.capture.minutes}</label>
-            <input
-              id={minutesId}
-              className="v2-field"
-              type="number"
-              min={TASK_MINUTES_INPUT.minimum}
-              max={TASK_MINUTES_INPUT.maximum}
-              step={TASK_MINUTES_INPUT.step}
-              inputMode="numeric"
-              value={taskMinutes}
-              onChange={(event) => setTaskMinutes(event.target.value)}
-            />
-          </div>
-          <div className="v2-field-group">
-            <label htmlFor={laneId}>{copy.today.capture.lane}</label>
-            <select
-              id={laneId}
-              className="v2-field"
-              value={taskLane}
-              onChange={(event) => setTaskLane(event.target.value as TaskLane)}
-            >
-              {TASK_LANE_IDS.map((lane) => (
-                <option key={lane} value={lane}>{taskLaneCopy(copy, lane).label}</option>
-              ))}
-            </select>
-          </div>
-          <button type="submit" className="v2-button v2-button--primary" disabled={!taskTitle.trim()}>
-            {copy.today.capture.addTask}
-          </button>
-        </div>
-      </form>
 
       <div className="v2-task-lanes">
         {TASK_LANE_IDS.map((lane) => {
@@ -851,6 +835,124 @@ export function TodayView({
           );
         })}
       </div>
+
+      <div className="v3-today-add-entry">
+        <button
+          id="v3-add-task-trigger"
+          type="button"
+          className="v2-button v2-button--primary"
+          onClick={() => setCaptureOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={captureOpen}
+        >
+          <Plus size={18} weight="bold" aria-hidden="true" />
+          {copy.today.capture.addTask}
+        </button>
+      </div>
+
+      <DialogFrame
+        open={captureOpen}
+        titleId={captureTitleId}
+        descriptionId={todayTasks.length === 0 ? firstAnchorId : captureDescriptionId}
+        closeLabel={copy.today.capture.closeLabel}
+        className="v3-task-dialog"
+        initialFocusRef={taskTitleRef}
+        onClose={() => setCaptureOpen(false)}
+      >
+        <form
+          className="v3-task-dialog__form"
+          onSubmit={submitTask}
+          noValidate
+          data-first-use={todayTasks.length === 0 ? 'true' : undefined}
+          data-guided={guideAnchor ? 'true' : undefined}
+        >
+          <div className="v2-dialog-heading">
+            <h2 id={captureTitleId} className="v2-dialog-title">
+              {todayTasks.length === 0 ? copy.today.firstAnchor.title : copy.today.capture.title}
+            </h2>
+            <p
+              id={todayTasks.length === 0 ? firstAnchorId : captureDescriptionId}
+              className="v2-dialog-description"
+            >
+              {todayTasks.length === 0
+                ? copy.today.firstAnchor.description
+                : copy.today.capture.description}
+            </p>
+          </div>
+
+          {todayTasks.length === 0 && (
+            <p className="v3-anchor-guide__lane-key">{copy.today.firstAnchor.laneGuide}</p>
+          )}
+
+          <div className="v3-task-dialog__fields">
+            <div className="v2-field-group v3-task-dialog__task">
+              <label htmlFor={titleId}>{copy.today.capture.task}</label>
+              <input
+                ref={taskTitleRef}
+                id={titleId}
+                className="v2-field"
+                value={taskTitle}
+                onChange={(event) => setTaskTitle(event.target.value)}
+                maxLength={NOOK_INPUT_LIMITS.taskTitle}
+                placeholder={copy.today.capture.taskPlaceholder}
+                autoComplete="off"
+              />
+            </div>
+            <div className="v2-field-group">
+              <label htmlFor={categoryId}>{copy.today.capture.category}</label>
+              <input
+                id={categoryId}
+                className="v2-field"
+                value={taskCategory}
+                onChange={(event) => setTaskCategory(event.target.value)}
+                maxLength={NOOK_INPUT_LIMITS.taskCategory}
+                placeholder={copy.today.capture.categoryPlaceholder}
+                autoComplete="off"
+              />
+            </div>
+            <div className="v2-field-group">
+              <label htmlFor={minutesId}>{copy.today.capture.minutes}</label>
+              <input
+                id={minutesId}
+                className="v2-field"
+                type="number"
+                min={TASK_MINUTES_INPUT.minimum}
+                max={TASK_MINUTES_INPUT.maximum}
+                step={TASK_MINUTES_INPUT.step}
+                inputMode="numeric"
+                value={taskMinutes}
+                onChange={(event) => setTaskMinutes(event.target.value)}
+              />
+            </div>
+            <div className="v2-field-group">
+              <label htmlFor={laneId}>{copy.today.capture.lane}</label>
+              <select
+                id={laneId}
+                className="v2-field"
+                value={taskLane}
+                onChange={(event) => setTaskLane(event.target.value as TaskLane)}
+              >
+                {TASK_LANE_IDS.map((lane) => (
+                  <option key={lane} value={lane}>{taskLaneCopy(copy, lane).label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="v2-dialog-actions">
+            <button
+              type="button"
+              className="v2-button v2-button--secondary"
+              onClick={() => setCaptureOpen(false)}
+            >
+              {copy.common.actions.cancel}
+            </button>
+            <button type="submit" className="v2-button v2-button--primary" disabled={!taskTitle.trim()}>
+              {copy.today.capture.addTask}
+            </button>
+          </div>
+        </form>
+      </DialogFrame>
     </div>
   );
 }
@@ -868,7 +970,6 @@ export function HabitsView({
   const minimumId = useId();
   const [habitName, setHabitName] = useState('');
   const [minimum, setMinimum] = useState('');
-  const rhythmDays = lastSevenDayKeys(dayKey);
   const activeHabits = habits.filter((habit) => !habit.archivedAt);
   const checkedToday = activeHabits.filter((habit) => logValueFor(habitLogs, habit.id, dayKey) > 0).length;
 
@@ -895,7 +996,8 @@ export function HabitsView({
         </p>
       </header>
 
-      <section className="v2-habit-world" aria-labelledby="v2-habits-today-title">
+      <div className="v3-habit-field">
+        <section className="v2-habit-world" aria-labelledby="v2-habits-today-title">
         <div className="v2-section-heading">
           <div>
             <h2 id="v2-habits-today-title" className="v2-section-heading__title">{copy.habits.minimumTitle}</h2>
@@ -940,9 +1042,9 @@ export function HabitsView({
         ) : (
           <p className="v2-empty-state">{copy.habits.empty}</p>
         )}
-      </section>
+        </section>
 
-      <section className="v2-rhythm" aria-labelledby="v2-rhythm-title">
+        <section className="v2-rhythm" aria-labelledby="v2-rhythm-title">
         <div className="v2-section-heading">
           <div>
             <h2 id="v2-rhythm-title" className="v2-section-heading__title">{copy.habits.rhythm.title}</h2>
@@ -950,81 +1052,31 @@ export function HabitsView({
           </div>
         </div>
         {activeHabits.length ? (
-          <div className="v2-rhythm__table-wrap">
-            <table className="v2-rhythm__table">
-              <thead>
-                <tr>
-                  <th scope="col">{terms.habit}</th>
-                  {rhythmDays.map((rhythmDay) => (
-                    <th key={rhythmDay} scope="col" data-today={rhythmDay === dayKey ? 'true' : 'false'}>
-                      <abbr title={formatDayKey(rhythmDay, 'archive')}>
-                        {formatDayKey(rhythmDay, 'weekdayShort')}
-                      </abbr>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {activeHabits.map((habit) => (
-                  <tr key={habit.id}>
-                    <th scope="row">{habit.label}</th>
-                    {rhythmDays.map((rhythmDay) => {
-                      const state = habitRhythmState(habit, habitLogs, rhythmDay);
-                      const checked = state === 'checked';
-                      const stateLabel = state === 'unknown'
-                        ? copy.habits.rhythm.noRecord
-                        : state === 'checked'
-                          ? copy.habits.rhythm.checked
-                          : copy.habits.rhythm.notChecked;
-                      const cellLabel = copy.habits.rhythm.cell(
-                        habit.label,
-                        formatDayKey(rhythmDay, 'archive'),
-                        stateLabel,
-                      );
-                      return (
-                        <td
-                          key={rhythmDay}
-                          data-state={state}
-                          data-checked={checked ? 'true' : 'false'}
-                          data-today={rhythmDay === dayKey ? 'true' : 'false'}
-                        >
-                          {rhythmDay === dayKey ? (
-                            <button
-                              type="button"
-                              className="v2-rhythm__today-toggle"
-                              onClick={() => onToggleToday(habit.id, checked ? 0 : 1)}
-                              aria-label={copy.habits.rhythm.toggleToday(cellLabel)}
-                              aria-pressed={checked}
-                            >
-                              {checked
-                                ? <Check size={15} weight="bold" aria-hidden="true" />
-                                : state === 'unknown'
-                                  ? <Minus size={13} weight="bold" aria-hidden="true" />
-                                  : <Circle size={12} weight="bold" aria-hidden="true" />}
-                            </button>
-                          ) : (
-                            <span className="v2-rhythm__mark" role="img" aria-label={cellLabel}>
-                              {checked
-                                ? <Check size={14} weight="bold" aria-hidden="true" />
-                                : state === 'unknown'
-                                  ? <Minus size={12} weight="bold" aria-hidden="true" />
-                                  : <Circle size={10} weight="bold" aria-hidden="true" />}
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="v3-rhythm-grove" aria-label={copy.habits.rhythm.listLabel}>
+            {activeHabits.map((habit) => {
+              const checkedToday = logValueFor(habitLogs, habit.id, dayKey) > 0;
+              const streak = currentHabitStreak(habit.id, habitLogs, dayKey);
+              return (
+                <HabitRhythmTree
+                  key={habit.id}
+                  habitLabel={habit.label}
+                  streak={streak}
+                  streakLabel={copy.habits.rhythm.streak(streak)}
+                  checkedToday={checkedToday}
+                  actionLabel={checkedToday
+                    ? copy.habits.uncheckToday(habit.label)
+                    : copy.habits.checkToday(habit.label)}
+                  onToggle={() => onToggleToday(habit.id, checkedToday ? 0 : 1)}
+                />
+              );
+            })}
+          </ul>
         ) : (
           <p className="v2-empty-state">{copy.habits.rhythm.empty}</p>
         )}
-      </section>
+        </section>
 
-      <form className="v2-inline-add v2-inline-add--habit" onSubmit={submitHabit} aria-labelledby="v2-add-habit-title">
+        <form className="v2-inline-add v2-inline-add--habit" onSubmit={submitHabit} aria-labelledby="v2-add-habit-title">
         <div className="v2-inline-add__heading">
           <Plus size={20} weight="bold" aria-hidden="true" />
           <div>
@@ -1061,7 +1113,8 @@ export function HabitsView({
             {copy.habits.add.action}
           </button>
         </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
@@ -1331,18 +1384,30 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
       id: 'morning-plan' as const,
       label: copy.notes.templates.morningPlan.label,
       description: copy.notes.templates.morningPlan.description,
+      icon: SunHorizon,
+      tone: 'peach' as const,
     },
     {
       id: 'close-day' as const,
       label: copy.notes.templates.closeDay.label,
       description: copy.notes.templates.closeDay.description,
+      icon: MoonStars,
+      tone: 'lavender' as const,
     },
     {
       id: 'weekly-reflection' as const,
       label: copy.notes.templates.weeklyReflection.label,
       description: copy.notes.templates.weeklyReflection.description,
+      icon: CalendarDots,
+      tone: 'lime' as const,
     },
-  ] satisfies ReadonlyArray<{ id: NoteTemplateId; label: string; description: string }>;
+  ] satisfies ReadonlyArray<{
+    id: NoteTemplateId;
+    label: string;
+    description: string;
+    icon: Icon;
+    tone: 'peach' | 'lavender' | 'lime';
+  }>;
 
   return (
     <div className="v2-view v2-notes-view">
@@ -1448,21 +1513,27 @@ export function NotesView({ notes, onApplyTemplate, onChangeContent, onSelectDay
         description={copy.notes.templates.description}
       >
         <div className="v2-note-templates__list">
-          {noteTemplates.map((template) => (
-            <button
-              key={template.id}
-              type="button"
-              className="v2-note-template"
-              onClick={() => onApplyTemplate(selectedDayKey, template.id)}
-            >
-              <Clock size={18} weight="bold" aria-hidden="true" />
-              <span>
-                <strong>{template.label}</strong>
-                <span>{template.description}</span>
-              </span>
-              <ArrowRight size={16} weight="bold" aria-hidden="true" />
-            </button>
-          ))}
+          {noteTemplates.map((template) => {
+            const TemplateIcon = template.icon;
+            return (
+              <button
+                key={template.id}
+                type="button"
+                className="v2-note-template"
+                data-tone={template.tone}
+                onClick={() => onApplyTemplate(selectedDayKey, template.id)}
+              >
+                <span className="v2-note-template__icon" aria-hidden="true">
+                  <TemplateIcon size={20} weight="bold" />
+                </span>
+                <span className="v2-note-template__copy">
+                  <strong>{template.label}</strong>
+                  <span>{template.description}</span>
+                </span>
+                <ArrowRight className="v2-note-template__arrow" size={17} weight="bold" aria-hidden="true" />
+              </button>
+            );
+          })}
         </div>
       </PremiumPreview>
     </div>

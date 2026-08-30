@@ -205,6 +205,8 @@ const englishCopy = {
     },
     capture: {
       title: 'Quick capture',
+      description: 'Give the task a name, a realistic duration, and a place in today.',
+      closeLabel: 'Close add task',
       task: 'Task',
       taskPlaceholder: 'What needs a place today?',
       category: 'Category',
@@ -253,7 +255,13 @@ const englishCopy = {
     empty: 'No habits yet. Add one with a minimum version you can keep on a difficult day.',
     rhythm: {
       title: 'Seven-day rhythm',
-      description: 'Check-ins only. No streak loss, ranking, or simulated history.',
+      description: 'Each consecutive check-in grows one fruit. Keep seven and the tree holds its flame.',
+      listLabel: 'Habit trees and current streaks',
+      streak: (count: number) => count === 0
+        ? 'No fruit yet'
+        : count >= 7
+          ? 'Seven days held'
+          : `${count} ${count === 1 ? 'day' : 'days'} held`,
       noRecord: 'no record',
       checked: 'checked',
       notChecked: 'not checked',
@@ -692,6 +700,8 @@ const vietnameseCopy = {
     },
     capture: {
       title: 'Thêm việc',
+      description: 'Đặt tên, ước lượng thời lượng thực tế và chọn vị trí phù hợp trong ngày.',
+      closeLabel: 'Đóng cửa sổ thêm việc',
       task: 'Tên việc',
       taskPlaceholder: 'Hôm nay cần làm gì?',
       category: 'Nhóm',
@@ -740,7 +750,13 @@ const vietnameseCopy = {
     empty: 'Chưa có thói quen. Hãy bắt đầu bằng một việc nhỏ mà ngày mệt vẫn làm được.',
     rhythm: {
       title: 'Nhịp 7 ngày',
-      description: 'Chỉ ghi nhận những lần bạn làm. Không chuỗi ngày, không xếp hạng, không lịch sử giả.',
+      description: 'Mỗi ngày giữ được nhịp, cây mọc thêm một quả. Đủ 7 quả, ngọn lửa sẽ xuất hiện.',
+      listLabel: 'Cây thói quen và chuỗi ngày hiện tại',
+      streak: (count: number) => count === 0
+        ? 'Chưa có quả'
+        : count >= 7
+          ? 'Đã giữ trọn 7 ngày'
+          : `Đã giữ nhịp ${count} ngày`,
       noRecord: 'chưa ghi nhận',
       checked: 'đã làm',
       notChecked: 'chưa làm',
