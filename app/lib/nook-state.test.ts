@@ -12,6 +12,7 @@ import {
   isDayKey,
   isFocusTimerComplete,
   migrateV1Snapshot,
+  normalizeTaskMinutesInput,
   parseBackup,
   parseV2Snapshot,
   remainingFocusSeconds,
@@ -70,6 +71,17 @@ test('DEFAULT_SNAPSHOT creates an honest, deterministic v2 starting point', () =
     onboardingCompleted: false,
   });
   assert.equal(snapshot.legacyWeekMinutes, null);
+});
+
+test('task minute input preserves valid estimates and falls back to five minutes', () => {
+  assert.equal(normalizeTaskMinutesInput('25'), 25);
+  assert.equal(normalizeTaskMinutesInput(720), 720);
+  assert.equal(normalizeTaskMinutesInput(''), 5);
+  assert.equal(normalizeTaskMinutesInput('   '), 5);
+  assert.equal(normalizeTaskMinutesInput(0), 5);
+  assert.equal(normalizeTaskMinutesInput(12), 5);
+  assert.equal(normalizeTaskMinutesInput(725), 5);
+  assert.equal(normalizeTaskMinutesInput(Number.NaN), 5);
 });
 
 test('legacy v2 snapshots default to English without replaying onboarding', () => {

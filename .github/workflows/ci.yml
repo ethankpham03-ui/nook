@@ -32,5 +32,11 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build
+
+      - name: Verify production viewport
+        run: npm run verify:build

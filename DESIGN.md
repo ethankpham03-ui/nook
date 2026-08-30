@@ -111,7 +111,7 @@ generic flat or desaturated dashboard.
 - One generous lavender field for the habit ritual
 - A branded aperture reveal that opens into the private desk
 - A compact liquid-glass dock whose moving lens previews each destination
-- Direction-aware tab movement that preserves spatial orientation
+- Direction-aware tab movement with a slower, weighted settle that preserves spatial orientation
 - Soft 26–30px containers and compact pill-shaped actions
 - Playful details held inside a quiet, highly usable layout
 - Anonymous, specific, privacy-forward product copy
@@ -196,6 +196,23 @@ the lens. Dialogs and toasts may use a stronger soft shadow because they float
 over the current context. The timer’s faint grid and single lime glow are
 deliberate signature details, not a reusable background effect.
 
+## Motion cadence
+
+Nook responds immediately, then settles slowly enough to feel tactile. Motion
+must never begin with an artificial pause after input. Routine control feedback
+uses 180ms; state changes use 280ms; destination content settles over 480ms;
+major blocks use 500–520ms with 45ms hierarchy offsets capped below 180ms; and
+grouped elements use 420ms with 28ms offsets. The dock lens follows a committed
+destination over 460ms. Arrivals use `cubic-bezier(0.16, 1, 0.3, 1)` and exits
+remain shorter than entrances.
+
+The launch aperture is Nook's one authored focal sequence. It lasts about 1.9
+seconds end to end: aperture and mark, wordmark and tagline, a short readable
+hold, then a 420ms exit. It remains a brand cue, not a loading claim. Top-level
+views use distinct supporting choreography: Home unfolds the next move, Today
+stages planning surfaces, Habits settles as one field, Focus gains weight, and
+Notes opens editor and archive from their spatial relationship.
+
 ## Shapes
 
 The outer shell uses a 30px radius. Major content cards use 26px. Dialogs use
@@ -224,21 +241,23 @@ every breakpoint, including while it is dragged between destinations.
 - Five equal targets ordered Today, Habits, Home, Focus, Notes.
 - A circular liquid lens previews the nearest target continuously on hover or
   a pointer-captured drag, commits that destination on release, then settles in
-  about 360ms. Click remains direct selection.
+  about 460ms. Click remains direct selection.
 - The lens tint and foreground follow the previewed destination. The committed
   tab remains legible off-lens in both themes while retaining its raised state.
 - Labels remain visible; the selected Focus tab may show a live timer dot.
 - Destination content arrives from the direction of travel: forward tabs move
-  in from the right and backward tabs from the left. The transition is short
-  and orienting, never a carousel or a gesture-only interaction.
+  in from the right and backward tabs from the left. New content is visible in
+  the first frame and settles over 480ms, never becoming a carousel or a
+  gesture-only interaction.
 - Arrow keys move between tabs, Home/End jump to the ends, and reduced-motion,
   reduced-transparency, and forced-color modes receive explicit fallbacks.
 
 ### Launch & Onboarding
 
 - A cold launch opens Nook's bundled mark from a narrow charcoal aperture,
-  followed by the wordmark and localized tagline. It is a brief brand cue, not
-  a simulated network-loading delay or progress claim.
+  followed by the wordmark and localized tagline. Its approximately 1.9-second
+  choreography is an authored brand cue, not a simulated network-loading delay
+  or progress claim.
 - First-run onboarding is a focused three-step dialog. Language choice follows
   a clear value statement in step one, Skip stays available throughout, and
   the final chartreuse action opens Morning Plan. A compact, accessible loop

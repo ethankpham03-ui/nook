@@ -26,8 +26,9 @@ import {
   type NewTaskInput,
   type NoteTemplateId,
 } from './components/NookViews';
-import { NookLaunch } from './components/NookLaunch';
+import { NOOK_LAUNCH_TIMING, NookLaunch } from './components/NookLaunch';
 import { NookOnboarding } from './components/NookOnboarding';
+import { syncStandaloneViewport } from './lib/display-mode';
 import { getNookCopy, NookI18nProvider, useNookI18n } from './lib/i18n';
 import {
   DEFAULT_SNAPSHOT,
@@ -37,6 +38,7 @@ import {
   createFocusTimer,
   deriveFocusCompletionTiming,
   isDayKey,
+  normalizeTaskMinutesInput,
   parseBackup,
   remainingFocusSeconds,
   serializeBackup,
@@ -301,11 +303,7 @@ export default function NookPage() {
       setSaveStatus(readError ? 'error' : 'saved');
       if (readError) notify(getNookCopy(next.settings.language).messages.readError);
 
-      const appleNavigator = navigator as Navigator & { standalone?: boolean };
-      setStandalone(
-        window.matchMedia('(display-mode: standalone)').matches
-        || appleNavigator.standalone === true,
-      );
+      setStandalone(syncStandaloneViewport());
 
       const hash = window.location.hash.slice(1) as Tab;
       if (TAB_META.some((tab) => tab.id === hash)) setActiveTab(hash);
@@ -325,13 +323,16 @@ export default function NookPage() {
     const elapsed = launchStartedAtRef.current === null
       ? 0
       : performance.now() - launchStartedAtRef.current;
-    const waitForAuthoredMoment = Math.max(0, (reducedMotion ? 0 : 720) - elapsed);
+    const waitForAuthoredMoment = Math.max(
+      0,
+      (reducedMotion ? 0 : NOOK_LAUNCH_TIMING.minimumVisible) - elapsed,
+    );
     let finishTimer = 0;
     const leaveTimer = window.setTimeout(() => {
       setLaunchPhase('leaving');
       finishTimer = window.setTimeout(
         () => setLaunchVisible(false),
-        reducedMotion ? 150 : 270,
+        reducedMotion ? NOOK_LAUNCH_TIMING.reducedLeaving : NOOK_LAUNCH_TIMING.leaving,
       );
     }, waitForAuthoredMoment);
     return () => {
@@ -525,7 +526,7 @@ export default function NookPage() {
           id: taskId,
           title,
           category,
-          minutes: input.minutes,
+          minutes: normalizeTaskMinutesInput(input.minutes),
           done: false,
           lane: input.lane,
           dayKey: todayKey,

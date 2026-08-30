@@ -23,7 +23,11 @@ import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNookI18n } from '../lib/i18n';
 import type { Language, NookCopy } from '../lib/i18n';
-import { NOOK_INPUT_LIMITS } from '../lib/nook-state';
+import {
+  NOOK_INPUT_LIMITS,
+  TASK_MINUTES_INPUT,
+  normalizeTaskMinutesInput,
+} from '../lib/nook-state';
 import type {
   DailyRecord,
   FocusSession,
@@ -51,11 +55,11 @@ const VIEW_TERMS = {
     open: { one: 'open', other: 'open', zero: 'open' },
   },
   vi: {
-    capacityUnset: 'Đặt sức chứa để kế hoạch luôn vừa sức.',
+    capacityUnset: 'Đặt quỹ thời gian để kế hoạch không bị quá tải.',
     checklist: { one: 'mục danh sách', other: 'mục danh sách' },
     daily: 'Hằng ngày',
     habit: 'Thói quen',
-    minimumMissing: 'Chưa đặt phiên bản tối thiểu',
+    minimumMissing: 'Chưa đặt mức tối thiểu',
     open: { one: 'còn lại', other: 'còn lại', zero: 'còn lại' },
   },
 } as const satisfies Record<Language, {
@@ -291,6 +295,8 @@ export function HomeView({
     {
       id: 'plan',
       label: copy.home.arc.stages.shape,
+      actionLabel: copy.home.arc.actions.shape,
+      action: () => onNavigate('today' as Tab),
       complete: hasShapedDay,
       detail: hasShapedDay
         ? copy.home.arc.tasksPlaced(todayTasks.length)
@@ -301,6 +307,11 @@ export function HomeView({
     {
       id: 'focus',
       label: copy.home.arc.stages.focus,
+      actionLabel: copy.home.arc.actions.focus,
+      action: () => {
+        if (pendingAnchor && onFocusTask) onFocusTask(pendingAnchor.id);
+        else onNavigate('focus' as Tab);
+      },
       complete: todayFocusMinutes > 0,
       detail: todayFocusMinutes > 0
         ? copy.home.arc.focusRecorded(formatMinutes(todayFocusMinutes))
@@ -309,6 +320,8 @@ export function HomeView({
     {
       id: 'tend',
       label: copy.home.arc.stages.tend,
+      actionLabel: copy.home.arc.actions.tend,
+      action: () => onNavigate('habits' as Tab),
       complete: habitsCheckedToday > 0,
       detail: activeHabits.length
         ? copy.home.arc.habitsChecked(habitsCheckedToday, activeHabits.length)
@@ -317,6 +330,8 @@ export function HomeView({
     {
       id: 'close',
       label: copy.home.arc.stages.close,
+      actionLabel: hasReflection ? copy.home.arc.actions.closed : copy.home.arc.actions.close,
+      action: hasReflection ? () => onNavigate('notes' as Tab) : onCloseDay,
       complete: hasReflection,
       detail: todayRecord?.closedAt ? copy.home.dayClosed : copy.home.arc.noClosingNote,
     },
@@ -349,10 +364,12 @@ export function HomeView({
     handleQuietMove = () => onNavigate('today' as Tab);
   } else if (pendingAnchor) {
     quietMoveTitle = pendingAnchor.title;
-    quietMoveDetail = copy.home.quietMove.anchorDetail(
-      pendingAnchor.category,
-      formatMinutes(pendingAnchor.minutes),
-    );
+    quietMoveDetail = pendingAnchor.category.trim()
+      ? copy.home.quietMove.anchorDetail(
+        pendingAnchor.category,
+        formatMinutes(pendingAnchor.minutes),
+      )
+      : copy.home.quietMove.anchorDetailWithoutCategory(formatMinutes(pendingAnchor.minutes));
     quietMoveAction = copy.home.quietMove.focusAnchorAction;
     handleQuietMove = () => {
       if (onFocusTask) onFocusTask(pendingAnchor.id);
@@ -442,19 +459,24 @@ export function HomeView({
           />
           <ol className="v2-day-arc__steps">
             {arcStages.map((stage) => (
-              <li
-                key={stage.id}
-                className="v2-day-arc__step"
-                data-state={stage.state}
-                aria-current={stage.state === 'current' ? 'step' : undefined}
-              >
-                <span className="v2-day-arc__marker" aria-hidden="true">
-                  {stage.complete ? <Check size={15} weight="bold" /> : <Circle size={12} weight="bold" />}
-                </span>
-                <span className="v2-day-arc__step-copy">
-                  <strong>{stage.label}</strong>
-                  <span>{stage.detail}</span>
-                </span>
+              <li key={stage.id} className="v2-day-arc__item">
+                <button
+                  type="button"
+                  className="v2-day-arc__step"
+                  data-state={stage.state}
+                  aria-current={stage.state === 'current' ? 'step' : undefined}
+                  aria-label={stage.actionLabel}
+                  onClick={stage.action}
+                >
+                  <span className="v2-day-arc__marker" aria-hidden="true">
+                    {stage.complete ? <Check size={15} weight="bold" /> : <Circle size={12} weight="bold" />}
+                  </span>
+                  <span className="v2-day-arc__step-copy">
+                    <strong>{stage.label}</strong>
+                    <span>{stage.detail}</span>
+                  </span>
+                  <ArrowRight className="v2-day-arc__step-arrow" size={15} weight="bold" aria-hidden="true" />
+                </button>
               </li>
             ))}
           </ol>
@@ -510,24 +532,47 @@ export function HomeView({
             <p className="v2-weekly-compass__summary">
               {copy.home.compass.activeDays(observedDays.size)}
             </p>
-            <dl className="v2-weekly-compass__measures">
-              <div>
-                <dt>{copy.home.compass.tasksCompleted}</dt>
-                <dd>{formatNumber(weeklyCompletedTasks)}</dd>
-              </div>
-              <div>
-                <dt>{copy.home.compass.focusRecorded}</dt>
-                <dd>{formatMinutes(weeklyFocusMinutes)}</dd>
-              </div>
-              <div>
-                <dt>{copy.home.compass.habitCheckIns}</dt>
-                <dd>{formatNumber(weeklyHabitChecks)}</dd>
-              </div>
-              <div>
-                <dt>{copy.home.compass.noteDays}</dt>
-                <dd>{formatNumber(weeklyNoteDays)}</dd>
-              </div>
-            </dl>
+            <ul className="v2-weekly-compass__measures" aria-label={copy.home.compass.linksLabel}>
+              {[
+                {
+                  label: copy.home.compass.tasksCompleted,
+                  value: formatNumber(weeklyCompletedTasks),
+                  actionLabel: copy.home.compass.actions.tasks,
+                  tab: 'today' as Tab,
+                },
+                {
+                  label: copy.home.compass.focusRecorded,
+                  value: formatMinutes(weeklyFocusMinutes),
+                  actionLabel: copy.home.compass.actions.focus,
+                  tab: 'focus' as Tab,
+                },
+                {
+                  label: copy.home.compass.habitCheckIns,
+                  value: formatNumber(weeklyHabitChecks),
+                  actionLabel: copy.home.compass.actions.habits,
+                  tab: 'habits' as Tab,
+                },
+                {
+                  label: copy.home.compass.noteDays,
+                  value: formatNumber(weeklyNoteDays),
+                  actionLabel: copy.home.compass.actions.notes,
+                  tab: 'notes' as Tab,
+                },
+              ].map((measure) => (
+                <li key={measure.tab}>
+                  <button
+                    type="button"
+                    className="v2-weekly-compass__measure"
+                    aria-label={measure.actionLabel}
+                    onClick={() => onNavigate(measure.tab)}
+                  >
+                    <span className="v2-weekly-compass__measure-label">{measure.label}</span>
+                    <strong className="v2-weekly-compass__measure-value">{measure.value}</strong>
+                    <ArrowRight className="v2-weekly-compass__measure-arrow" size={15} weight="bold" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </PremiumPreview>
@@ -558,7 +603,7 @@ export function TodayView({
   const taskTitleRef = useRef<HTMLInputElement>(null);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskCategory, setTaskCategory] = useState('');
-  const [taskMinutes, setTaskMinutes] = useState(25);
+  const [taskMinutes, setTaskMinutes] = useState(String(TASK_MINUTES_INPUT.defaultValue));
   const [taskLane, setTaskLane] = useState<TaskLane>('anchor' as TaskLane);
 
   const todayTasks = tasks.filter((task) => task.dayKey === dayKey);
@@ -583,11 +628,11 @@ export function TodayView({
     onAddTask({
       title,
       category: taskCategory.trim(),
-      minutes: Math.max(5, Math.round(taskMinutes)),
+      minutes: normalizeTaskMinutesInput(taskMinutes),
       lane: taskLane,
     });
     setTaskTitle('');
-    setTaskMinutes(25);
+    setTaskMinutes(String(TASK_MINUTES_INPUT.defaultValue));
   }
 
   return (
@@ -642,6 +687,7 @@ export function TodayView({
       <form
         className="v2-quick-capture"
         onSubmit={submitTask}
+        noValidate
         aria-labelledby="v2-quick-capture-title"
         data-first-use={todayTasks.length === 0 ? 'true' : undefined}
         data-guided={guideAnchor ? 'true' : undefined}
@@ -695,12 +741,12 @@ export function TodayView({
               id={minutesId}
               className="v2-field"
               type="number"
-              min={5}
-              max={720}
-              step={5}
+              min={TASK_MINUTES_INPUT.minimum}
+              max={TASK_MINUTES_INPUT.maximum}
+              step={TASK_MINUTES_INPUT.step}
               inputMode="numeric"
               value={taskMinutes}
-              onChange={(event) => setTaskMinutes(Number(event.target.value) || 5)}
+              onChange={(event) => setTaskMinutes(event.target.value)}
             />
           </div>
           <div className="v2-field-group">

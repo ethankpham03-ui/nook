@@ -23,6 +23,28 @@ export const NOOK_INPUT_LIMITS = {
   noteContent: 100_000,
 } as const;
 
+export const TASK_MINUTES_INPUT = {
+  defaultValue: 25,
+  minimum: 5,
+  maximum: 720,
+  step: 5,
+} as const;
+
+export function normalizeTaskMinutesInput(value: unknown): number {
+  const candidate = typeof value === 'string' ? value.trim() : value;
+  if (candidate === '') return TASK_MINUTES_INPUT.minimum;
+
+  const minutes = Number(candidate);
+  const isValidStep = Number.isInteger(minutes)
+    && (minutes - TASK_MINUTES_INPUT.minimum) % TASK_MINUTES_INPUT.step === 0;
+
+  return isValidStep
+    && minutes >= TASK_MINUTES_INPUT.minimum
+    && minutes <= TASK_MINUTES_INPUT.maximum
+    ? minutes
+    : TASK_MINUTES_INPUT.minimum;
+}
+
 export type DateInput = Date | string | number;
 export type Tab = 'today' | 'habits' | 'home' | 'focus' | 'notes';
 export type TaskLane = 'anchor' | 'support' | 'optional';

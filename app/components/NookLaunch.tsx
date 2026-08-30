@@ -4,6 +4,12 @@ import Image from 'next/image';
 import { getNookCopy } from '../lib/i18n';
 import type { Language } from '../lib/nook-state';
 
+export const NOOK_LAUNCH_TIMING = {
+  minimumVisible: 1_500,
+  leaving: 430,
+  reducedLeaving: 150,
+} as const;
+
 export type NookLaunchProps = {
   language: Language;
   phase: 'active' | 'leaving';

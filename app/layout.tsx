@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { createStandaloneViewportBootstrap } from './lib/display-mode';
 
 function getSiteOrigin() {
   const value = process.env.SITE_ORIGIN;
@@ -14,6 +15,7 @@ function getSiteOrigin() {
 
 const siteOrigin = getSiteOrigin();
 const socialImage = siteOrigin ? new URL('/og.png', siteOrigin).href : undefined;
+const standaloneViewportBootstrap = createStandaloneViewportBootstrap();
 
 const appearanceBootstrap = `(() => {
   try {
@@ -92,6 +94,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: standaloneViewportBootstrap }} />
         <script dangerouslySetInnerHTML={{ __html: appearanceBootstrap }} />
       </head>
       <body className="antialiased">

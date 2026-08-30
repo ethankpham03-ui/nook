@@ -8,7 +8,7 @@ account, cloud database, or tracking and keeps personal data in the current
 browser. The complete interface is available in English and Vietnamese, with
 English as the default.
 
-![Nook social preview](public/og.png)
+![Nook Home view in desktop and mobile layouts beside the tagline Your day, quietly in focus](.github/assets/readme/nook-hero.png)
 
 ## Nook Arc
 
@@ -18,6 +18,8 @@ Nook connects its tools into one daily loop:
 
 Home stays a concise launchpad for that loop. Primary navigation preserves the
 fixed order **Today – Habits – Home – Focus – Notes**, with Home centered.
+
+![Nook Today, Habits, and Home views showing the daily loop from shaping a believable day to tending small habits](.github/assets/readme/nook-daily-loop.png)
 
 ## Wave 1 highlights
 
@@ -43,6 +45,8 @@ fixed order **Today – Habits – Home – Focus – Notes**, with Home centere
   production app shell after the first visit.
 - Direction-aware tab transitions follow the fixed navigation order. Launch,
   onboarding, and tab motion reduce to brief fades when reduced motion is set.
+
+![Nook Focus view in desktop and mobile layouts showing the idle 25-minute timer and distraction pad](.github/assets/readme/nook-focus.png)
 
 ## Premium Preview
 
@@ -104,6 +108,8 @@ The current snapshot is stored under `nook.local.v2` in browser storage. It
 contains tasks, habits and dated check-ins, daily records, completed focus
 sessions, current timer state, dated notes, selection, theme, language, and
 onboarding completion.
+
+![Nook Backup and Privacy settings showing local JSON export and import controls](.github/assets/readme/nook-local-first.png)
 
 When v2 data is absent, Nook reads the legacy `nook.local.v1` shape and safely
 normalizes it into schema v2. Existing task, habit, note, timer, and preference
