@@ -11,6 +11,9 @@
     "not_found_handling": "none",
     "binding": "ASSETS"
   },
+  "vars": {
+    "SITE_ORIGIN": "https://nook.ethankpham.workers.dev"
+  },
   "cache": {
     "enabled": true
   }
