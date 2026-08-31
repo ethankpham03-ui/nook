@@ -556,12 +556,15 @@ textarea:focus-visible {
 .nook-shell > .nook-scroll { padding-bottom: calc(8rem + env(safe-area-inset-bottom)); }
 .nook-scroll {
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--strong-line) transparent;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 .has-dialog .nook-scroll { overflow: hidden; }
-.nook-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
-.nook-scroll::-webkit-scrollbar-thumb { background: var(--strong-line); border-radius: 999px; }
+.nook-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 
 .mobile-sheet {
   max-height: calc(100dvh - max(16px, env(safe-area-inset-top)));
