@@ -6,6 +6,7 @@ import { ArrowRight } from '@phosphor-icons/react/ArrowRight';
 import { CalendarBlank } from '@phosphor-icons/react/CalendarBlank';
 import { CalendarDots } from '@phosphor-icons/react/CalendarDots';
 import { Check } from '@phosphor-icons/react/Check';
+import { CheckCircle } from '@phosphor-icons/react/CheckCircle';
 import { Circle } from '@phosphor-icons/react/Circle';
 import { Compass } from '@phosphor-icons/react/Compass';
 import { Fire } from '@phosphor-icons/react/Fire';
@@ -138,8 +139,10 @@ export interface FocusViewProps {
   onAddDistraction: (distraction: string) => void;
   onChangeIntention: (intention: string) => void;
   onChangeSessionNote: (note: string) => void;
+  onCompleteTimer: () => void;
   onRemoveDistraction?: (index: number) => void;
   onResetTimer: () => void;
+  onEnterFocus: (source: HTMLElement | null) => void;
   onSetPreset: (minutes: number) => void;
   onToggleTimer: () => void;
   sessions: readonly FocusSession[];
@@ -1124,8 +1127,10 @@ export function FocusView({
   onAddDistraction,
   onChangeIntention,
   onChangeSessionNote,
+  onCompleteTimer,
   onRemoveDistraction,
   onResetTimer,
+  onEnterFocus,
   onSetPreset,
   onToggleTimer,
   sessions,
@@ -1135,6 +1140,7 @@ export function FocusView({
   const intentionId = useId();
   const distractionId = useId();
   const sessionNoteId = useId();
+  const timerCardRef = useRef<HTMLElement>(null);
   const [distractionDraft, setDistractionDraft] = useState('');
   const historyDays = lastSevenDayKeys(dayKey);
   const history = historyDays.map((historyDay) => ({
@@ -1146,8 +1152,7 @@ export function FocusView({
   const historyMaximum = Math.max(...history.map((item) => item.minutes), 1);
   const historyTotal = history.reduce((total, item) => total + item.minutes, 0);
   const completedSessionCount = sessions.filter((session) => historyDays.includes(session.dayKey) && session.actualMinutes > 0).length;
-  const timerHasProgress = Boolean(timer.startedAt)
-    && timer.remainingSeconds < timer.presetMinutes * 60;
+  const timerHasProgress = Boolean(timer.startedAt || timer.pausedAt);
   const timerActionLabel = timer.running
     ? copy.focus.timer.pause
     : timerHasProgress
@@ -1184,7 +1189,7 @@ export function FocusView({
       </header>
 
       <div className="v2-focus-view__grid">
-        <section className="v2-focus-timer" aria-labelledby="v2-focus-timer-title">
+        <section ref={timerCardRef} className="v2-focus-timer" aria-labelledby="v2-focus-timer-title">
           <div className="v2-focus-timer__topline">
             <h2 id="v2-focus-timer-title">{copy.focus.timer.title}</h2>
             <div className="v2-focus-presets" aria-label={copy.focus.timer.presetsLabel}>
@@ -1224,12 +1229,26 @@ export function FocusView({
           </div>
 
           <div className="v2-focus-timer__actions">
-            <button type="button" className="v2-button v2-button--focus" onClick={onToggleTimer}>
+            <button
+              type="button"
+              className="v2-button v2-button--focus"
+              onClick={() => {
+                if (!timer.running) onEnterFocus(timerCardRef.current);
+                onToggleTimer();
+              }}
+              aria-haspopup={!timer.running ? 'dialog' : undefined}
+            >
               {timer.running
                 ? <Pause size={18} weight="bold" aria-hidden="true" />
                 : <Play size={18} weight="bold" aria-hidden="true" />}
               {timerActionLabel}
             </button>
+            {timer.startedAt && (
+              <button className="v2-button" type="button" onClick={onCompleteTimer}>
+                <CheckCircle size={18} weight="bold" aria-hidden="true" />
+                {copy.focus.room.completeEarly}
+              </button>
+            )}
             <button
               type="button"
               className="v2-icon-button v2-icon-button--on-dark"

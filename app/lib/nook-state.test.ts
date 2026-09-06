@@ -8,6 +8,7 @@ import {
   addDays,
   createFocusTimer,
   currentHabitStreak,
+  deriveEarlyFocusCompletionTiming,
   deriveFocusCompletionTiming,
   deriveDailyMetrics,
   isDayKey,
@@ -199,6 +200,35 @@ test('delayed focus completion uses the scheduled end instead of background wake
     actualMinutes: 25,
     dayKey: toDayKey('2026-08-27T10:25:00.000Z'),
     endedAt: '2026-08-27T10:25:00.000Z',
+    startedAt: '2026-08-27T10:00:00.000Z',
+  });
+});
+
+test('finishing focus early records only focused time and excludes a paused interval', () => {
+  const running: FocusTimer = {
+    ...createFocusTimer(25),
+    running: true,
+    remainingSeconds: 900,
+    startedAt: '2026-08-27T10:00:00.000Z',
+    endsAt: '2026-08-27T10:25:00.000Z',
+  };
+  assert.deepEqual(deriveEarlyFocusCompletionTiming(running, '2026-08-27T10:10:00.000Z'), {
+    actualMinutes: 10,
+    dayKey: '2026-08-27',
+    endedAt: '2026-08-27T10:10:00.000Z',
+    startedAt: '2026-08-27T10:00:00.000Z',
+  });
+
+  const paused: FocusTimer = {
+    ...createFocusTimer(25),
+    remainingSeconds: 1_200,
+    startedAt: '2026-08-27T10:00:00.000Z',
+    pausedAt: '2026-08-27T10:05:00.000Z',
+  };
+  assert.deepEqual(deriveEarlyFocusCompletionTiming(paused, '2026-08-27T12:00:00.000Z'), {
+    actualMinutes: 5,
+    dayKey: '2026-08-27',
+    endedAt: '2026-08-27T10:05:00.000Z',
     startedAt: '2026-08-27T10:00:00.000Z',
   });
 });

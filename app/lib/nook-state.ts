@@ -933,6 +933,37 @@ export function deriveFocusCompletionTiming(timer: FocusTimer): {
   };
 }
 
+export function deriveEarlyFocusCompletionTiming(timer: FocusTimer, at: DateInput = new Date()): {
+  actualMinutes: number;
+  dayKey: string;
+  endedAt: string;
+  startedAt: string;
+} {
+  if (!timer.startedAt) fail('An active focus timer requires a start time');
+  if (timer.running && !timer.endsAt) fail('A running focus timer requires an end time');
+
+  const observedAt = asDate(at);
+  const endedAt = timer.running
+    ? observedAt
+    : timer.pausedAt
+      ? asDate(timer.pausedAt)
+      : observedAt;
+  const totalSeconds = timer.presetMinutes * 60;
+  const remainingSeconds = timer.running
+    ? remainingFocusSeconds(timer, endedAt)
+    : Math.max(0, timer.remainingSeconds);
+  const focusedSeconds = Math.min(totalSeconds, Math.max(0, totalSeconds - remainingSeconds));
+  const actualMinutes = Math.round((focusedSeconds / 60) * 100) / 100;
+  const startedAt = new Date(endedAt.getTime() - focusedSeconds * 1_000);
+
+  return {
+    actualMinutes,
+    dayKey: toDayKey(endedAt),
+    endedAt: endedAt.toISOString(),
+    startedAt: startedAt.toISOString(),
+  };
+}
+
 export function derivePlannedMetrics(snapshot: NookSnapshot, dayKey: string): PlannedMetrics {
   if (!isDayKey(dayKey)) fail(`Invalid day key: ${String(dayKey)}`);
   const tasks = snapshot.tasks.filter((task) => task.dayKey === dayKey);

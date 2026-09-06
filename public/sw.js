@@ -1,4 +1,4 @@
-const CACHE = 'nook-shell-v10';
+const CACHE = 'nook-shell-v12';
 const OFFLINE_URL = '/';
 const APP_SHELL = [
   OFFLINE_URL,
@@ -53,4 +53,19 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => cached || networkResponse),
   );
   event.waitUntil(networkResponse.then(() => undefined).catch(() => undefined));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const destination = new URL(event.notification.data?.url || '/#focus', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
+      const existingClient = windowClients.find((client) => new URL(client.url).origin === self.location.origin);
+      if (existingClient) {
+        if ('navigate' in existingClient) await existingClient.navigate(destination);
+        return existingClient.focus();
+      }
+      return self.clients.openWindow(destination);
+    }),
+  );
 });

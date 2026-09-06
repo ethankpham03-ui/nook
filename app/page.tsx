@@ -2,6 +2,9 @@
 
 import { ArrowCounterClockwise } from '@phosphor-icons/react/ArrowCounterClockwise';
 import { Command as CommandIcon } from '@phosphor-icons/react/Command';
+import { ArrowsOut } from '@phosphor-icons/react/ArrowsOut';
+import { Pause } from '@phosphor-icons/react/Pause';
+import { Timer } from '@phosphor-icons/react/Timer';
 import { Sparkle } from '@phosphor-icons/react/Sparkle';
 import { X } from '@phosphor-icons/react/X';
 import type { CSSProperties, ReactNode } from 'react';
@@ -28,7 +31,9 @@ import {
 } from './components/NookViews';
 import { NOOK_LAUNCH_TIMING, NookLaunch } from './components/NookLaunch';
 import { NookOnboarding } from './components/NookOnboarding';
-import { syncStandaloneViewport } from './lib/display-mode';
+import { FocusRoom, type FocusRoomOrigin } from './components/NookFocusRoom';
+import { syncNookAppChrome, syncStandaloneViewport } from './lib/display-mode';
+import { dismissFocusNotification, showFocusNotification } from './lib/focus-notifications';
 import { getNookCopy, NookI18nProvider, useNookI18n } from './lib/i18n';
 import {
   DEFAULT_SNAPSHOT,
@@ -36,6 +41,7 @@ import {
   addDays,
   createDailyRecord,
   createFocusTimer,
+  deriveEarlyFocusCompletionTiming,
   deriveFocusCompletionTiming,
   isDayKey,
   normalizeTaskMinutesInput,
@@ -67,6 +73,11 @@ const TAB_META: ReadonlyArray<{ id: Tab; accent: string; wash: string }> = [
 ];
 
 const QUICK_ACTION_IDS = ['morning', 'today', 'focus', 'close', 'backup'] as const;
+
+function formatTimer(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+}
 
 type QuickActionId = (typeof QUICK_ACTION_IDS)[number];
 
@@ -223,6 +234,10 @@ export default function NookPage() {
   const [closeDayOpen, setCloseDayOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
+  const [focusRoom, setFocusRoom] = useState<{
+    origin: FocusRoomOrigin | null;
+    sessionCount: number;
+  } | null>(null);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<NookSnapshot | null>(null);
   const [activationStep, setActivationStep] = useState<ActivationStep>('idle');
@@ -235,9 +250,11 @@ export default function NookPage() {
   );
   const dialogOpen = morningPlanOpen || closeDayOpen || backupOpen || quickOpen
     || resetConfirmOpen || pendingImport !== null || onboardingOpen;
-  const backgroundBlocked = dialogOpen || launchVisible;
+  const backgroundBlocked = dialogOpen || launchVisible || focusRoom !== null;
   const scrollRef = useRef<HTMLElement>(null);
   const completedTimerRef = useRef<string | null>(null);
+  const focusCompletionInFlightRef = useRef(false);
+  const notificationIssueShownRef = useRef(false);
   const storageErrorShownRef = useRef(false);
   const storageRecoveryBlockedRef = useRef(false);
   const language = snapshot?.settings.language ?? 'en';
@@ -247,6 +264,45 @@ export default function NookPage() {
     setToast(message);
     setUndoState(undo);
   }, []);
+
+  function focusNotificationIntention(timer: NookSnapshot['focusTimer']) {
+    return timer.intention.trim() || copy.focus.room.intentionFallback;
+  }
+
+  function announceRunningFocus(timer: NookSnapshot['focusTimer'], now: Date) {
+    const endTime = new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(now.getTime() + Math.max(0, timer.remainingSeconds) * 1_000));
+    void showFocusNotification({
+      title: copy.focus.notifications.runningTitle,
+      body: copy.focus.notifications.runningBody(focusNotificationIntention(timer), endTime),
+    }, { requestPermission: true }).then((result) => {
+      if (result === 'shown' || notificationIssueShownRef.current) return;
+      notificationIssueShownRef.current = true;
+      notify(copy.messages.focusNotificationUnavailable);
+    });
+  }
+
+  function announcePausedFocus(timer: NookSnapshot['focusTimer']) {
+    void showFocusNotification({
+      title: copy.focus.notifications.pausedTitle,
+      body: copy.focus.notifications.pausedBody(focusNotificationIntention(timer)),
+    });
+  }
+
+  const announceCompletedFocus = useCallback((actualMinutes: number) => {
+    const value = new Intl.NumberFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+      maximumFractionDigits: 2,
+    }).format(actualMinutes);
+    const duration = actualMinutes > 0 && actualMinutes < 1
+      ? copy.focus.notifications.underOneMinute
+      : `${value} ${copy.common.units.minuteShort}`;
+    void showFocusNotification({
+      title: copy.focus.notifications.completedTitle,
+      body: copy.focus.notifications.completedBody(duration),
+    });
+  }, [copy.common.units.minuteShort, copy.focus.notifications, language]);
 
   const activateTab = useCallback((tab: Tab) => {
     setActiveTab((current) => {
@@ -390,6 +446,7 @@ export default function NookPage() {
     document.documentElement.style.colorScheme = snapshot.settings.dark ? 'dark' : 'light';
     document.documentElement.dataset.nookTheme = snapshot.settings.dark ? 'dark' : 'light';
     document.documentElement.lang = snapshot.settings.language;
+    syncNookAppChrome(snapshot.settings.dark);
   }, [snapshot]);
 
   useEffect(() => {
@@ -445,8 +502,9 @@ export default function NookPage() {
         focusTimer: createFocusTimer(timer.presetMinutes),
       };
     });
+    announceCompletedFocus(deriveFocusCompletionTiming(snapshot.focusTimer).actualMinutes);
     notify(copy.messages.focusComplete);
-  }, [copy.messages.focusComplete, displayedRemaining, notify, snapshot?.focusTimer.endsAt, snapshot?.focusTimer.running]);
+  }, [announceCompletedFocus, copy.messages.focusComplete, displayedRemaining, notify, snapshot?.focusTimer]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -717,6 +775,12 @@ export default function NookPage() {
 
   function toggleTimer() {
     const now = new Date();
+    const currentTimer = readySnapshot.focusTimer;
+    if (currentTimer.running) announcePausedFocus(currentTimer);
+    else {
+      focusCompletionInFlightRef.current = false;
+      announceRunningFocus(currentTimer, now);
+    }
     setSnapshot((current) => {
       if (!current) return current;
       const timer = current.focusTimer;
@@ -756,6 +820,75 @@ export default function NookPage() {
     });
   }
 
+  function completeTimerEarly() {
+    const timer = readySnapshot.focusTimer;
+    if (!timer.startedAt || focusCompletionInFlightRef.current) return;
+    focusCompletionInFlightRef.current = true;
+    const now = new Date();
+    const timing = deriveEarlyFocusCompletionTiming(timer, now);
+    const session: FocusSession = {
+      id: uid('focus'),
+      taskId: timer.taskId,
+      dayKey: timing.dayKey,
+      status: 'completed',
+      plannedMinutes: timer.presetMinutes,
+      actualMinutes: timing.actualMinutes,
+      intention: timer.intention.trim(),
+      distractions: timer.distractions.length,
+      sessionNote: timer.sessionNote.trim(),
+      startedAt: timing.startedAt,
+      endedAt: timing.endedAt,
+    };
+    completedTimerRef.current = timer.endsAt ?? timing.endedAt;
+    setSnapshot((current) => {
+      if (!current?.focusTimer.startedAt) return current;
+      return {
+        ...current,
+        focusSessions: [...current.focusSessions, session],
+        focusTimer: createFocusTimer(timer.presetMinutes),
+      };
+    });
+    announceCompletedFocus(timing.actualMinutes);
+    notify(copy.messages.focusComplete);
+  }
+
+  function enterFocusRoom(source: HTMLElement | null) {
+    function readRect(element: Element | null) {
+      if (!(element instanceof HTMLElement)) return undefined;
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return undefined;
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }
+
+    const surface = readRect(source);
+    setFocusRoom({
+      origin: surface ? {
+        surface,
+        digits: readRect(source?.querySelector('.v2-focus-timer__digits, .v3-focus-banner__time') ?? null),
+        intention: readRect(source?.querySelector('.v2-field-group--on-dark, .v3-focus-banner__copy') ?? null),
+        actions: readRect(source?.querySelector('.v2-focus-timer__actions, .v3-focus-banner .v2-button') ?? null),
+      } : null,
+      sessionCount: readySnapshot.focusSessions.length,
+    });
+  }
+
+  function addFocusDistraction(distraction: string) {
+    setSnapshot((current) => {
+      if (!current || current.focusTimer.distractions.length >= NOOK_INPUT_LIMITS.distractions) {
+        return current;
+      }
+      const nextDistraction = boundedText(distraction.trim(), NOOK_INPUT_LIMITS.distraction);
+      if (!nextDistraction) return current;
+      return {
+        ...current,
+        focusTimer: {
+          ...current.focusTimer,
+          distractions: [...current.focusTimer.distractions, nextDistraction],
+        },
+      };
+    });
+  }
+
   function resetTimer() {
     setSnapshot((current) => {
       if (!current) return current;
@@ -771,7 +904,9 @@ export default function NookPage() {
         },
       };
     });
+    focusCompletionInFlightRef.current = false;
     completedTimerRef.current = null;
+    void dismissFocusNotification();
   }
 
   function replanOverflow() {
@@ -958,7 +1093,7 @@ export default function NookPage() {
   return (
     <NookI18nProvider language={language}>
       <main
-        className={`nook-app v2-app${snapshot.settings.dark ? ' is-dark' : ''}${standalone ? ' is-standalone' : ''}${dialogOpen ? ' has-dialog' : ''}`}
+        className={`nook-app v2-app${snapshot.settings.dark ? ' is-dark' : ''}${standalone ? ' is-standalone' : ''}${dialogOpen || focusRoom ? ' has-dialog' : ''}`}
         style={appStyle}
       >
       {launchVisible && (
@@ -992,6 +1127,28 @@ export default function NookPage() {
           inert={dialogOpen ? true : undefined}
         >
           <div className="v2-content">
+            {focusTimer.startedAt && (
+              <aside className="v3-focus-banner" data-paused={!focusTimer.running} aria-label={copy.focus.room.title}>
+                {focusTimer.running
+                  ? <Timer size={26} weight="bold" aria-hidden="true" />
+                  : <Pause size={26} weight="bold" aria-hidden="true" />}
+                <div className="v3-focus-banner__copy">
+                  <p className="v3-focus-banner__title" role="status">
+                    {focusTimer.running ? copy.focus.room.runningTitle : copy.focus.room.pausedTitle}
+                  </p>
+                  <p className="v3-focus-banner__intention">
+                    {focusTimer.intention.trim() || copy.focus.room.intentionFallback}
+                  </p>
+                </div>
+                <span className="v3-focus-banner__time" aria-label={copy.focus.timer.remaining(formatTimer(displayedRemaining))}>
+                  {formatTimer(displayedRemaining)}
+                </span>
+                <button className="v2-button" type="button" aria-haspopup="dialog" onClick={(event) => enterFocusRoom(event.currentTarget.closest('aside'))}>
+                  <ArrowsOut size={18} weight="bold" aria-hidden="true" />
+                  {copy.focus.room.expand}
+                </button>
+              </aside>
+            )}
             <section
               key={activeTab}
               id="nook-tab-panel"
@@ -1090,6 +1247,8 @@ export default function NookPage() {
                     sessions={snapshot.focusSessions}
                     onSetPreset={setFocusPreset}
                     onToggleTimer={toggleTimer}
+                    onCompleteTimer={completeTimerEarly}
+                    onEnterFocus={enterFocusRoom}
                     onResetTimer={resetTimer}
                     onChangeIntention={(intention) => setSnapshot((current) => current ? {
                       ...current,
@@ -1098,20 +1257,7 @@ export default function NookPage() {
                         intention: boundedText(intention, NOOK_INPUT_LIMITS.focusIntention),
                       },
                     } : current)}
-                    onAddDistraction={(distraction) => setSnapshot((current) => {
-                      if (!current || current.focusTimer.distractions.length >= NOOK_INPUT_LIMITS.distractions) {
-                        return current;
-                      }
-                      const nextDistraction = boundedText(distraction.trim(), NOOK_INPUT_LIMITS.distraction);
-                      if (!nextDistraction) return current;
-                      return {
-                        ...current,
-                        focusTimer: {
-                          ...current.focusTimer,
-                          distractions: [...current.focusTimer.distractions, nextDistraction],
-                        },
-                      };
-                    })}
+                    onAddDistraction={addFocusDistraction}
                     onRemoveDistraction={(index) => setSnapshot((current) => current ? {
                       ...current,
                       focusTimer: {
@@ -1189,6 +1335,24 @@ export default function NookPage() {
           focusRunning={snapshot.focusTimer.running}
         />
       </div>
+
+      {focusRoom && (
+        <FocusRoom
+          origin={focusRoom.origin}
+          timer={focusTimer}
+          completedSession={snapshot.focusSessions.length > focusRoom.sessionCount
+            ? snapshot.focusSessions.at(-1) ?? null
+            : null}
+          onAddDistraction={addFocusDistraction}
+          onClose={() => {
+            setFocusRoom(null);
+            if (!snapshot.focusTimer.startedAt) activateTab('focus');
+          }}
+          onToggleTimer={toggleTimer}
+          onCompleteTimer={completeTimerEarly}
+          onResetTimer={resetTimer}
+        />
+      )}
 
       <MorningPlanDialog
         open={morningPlanOpen}

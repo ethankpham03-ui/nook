@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { createStandaloneViewportBootstrap } from './lib/display-mode';
+import {
+  NOOK_APP_CHROME_COLORS,
+  createAppearanceBootstrap,
+  createStandaloneViewportBootstrap,
+} from './lib/display-mode';
 
 function getSiteOrigin() {
   const value = process.env.SITE_ORIGIN;
@@ -16,28 +20,7 @@ function getSiteOrigin() {
 const siteOrigin = getSiteOrigin();
 const socialImage = siteOrigin ? new URL('/og.png', siteOrigin).href : undefined;
 const standaloneViewportBootstrap = createStandaloneViewportBootstrap();
-
-const appearanceBootstrap = `(() => {
-  try {
-    const raw = localStorage.getItem('nook.local.v2') || localStorage.getItem('nook.local.v1');
-    if (!raw) return;
-    const payload = JSON.parse(raw);
-    const snapshot = payload && typeof payload === 'object' && payload.snapshot ? payload.snapshot : payload;
-    const settings = snapshot && typeof snapshot === 'object' ? snapshot.settings : null;
-    const dark = settings && typeof settings.dark === 'boolean'
-      ? settings.dark
-      : snapshot && typeof snapshot.dark === 'boolean'
-        ? snapshot.dark
-        : null;
-    if (dark !== null) {
-      document.documentElement.dataset.nookTheme = dark ? 'dark' : 'light';
-      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-    }
-    if (settings && (settings.language === 'en' || settings.language === 'vi')) {
-      document.documentElement.lang = settings.language;
-    }
-  } catch {}
-})();`;
+const appearanceBootstrap = createAppearanceBootstrap();
 
 export const metadata: Metadata = {
   metadataBase: siteOrigin,
@@ -48,7 +31,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Nook',
-    statusBarStyle: 'black',
+    statusBarStyle: 'default',
   },
   robots: {
     index: true,
@@ -83,7 +66,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#20231f',
+  themeColor: NOOK_APP_CHROME_COLORS.light,
 };
 
 export default function RootLayout({
