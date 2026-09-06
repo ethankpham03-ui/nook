@@ -39,6 +39,7 @@ export function syncNookAppChrome(isDark: boolean) {
   if (typeof document === 'undefined') return;
 
   const color = isDark ? NOOK_APP_CHROME_COLORS.dark : NOOK_APP_CHROME_COLORS.light;
+  document.documentElement.dataset.nookChrome = isDark ? 'dark' : 'light';
   document.documentElement.style.backgroundColor = color;
 
   const themeColors = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
@@ -81,6 +82,7 @@ export function createAppearanceBootstrap() {
 
   const appChromeColor = isDark ? ${dark} : ${light};
   root.dataset.nookTheme = isDark ? 'dark' : 'light';
+  root.dataset.nookChrome = isDark ? 'dark' : 'light';
   root.style.colorScheme = isDark ? 'dark' : 'light';
   root.style.backgroundColor = appChromeColor;
 

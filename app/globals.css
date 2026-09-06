@@ -124,6 +124,18 @@ html[data-nook-theme='dark'] body {
   background: var(--app-chrome);
 }
 
+html[data-nook-chrome='light'],
+html[data-nook-chrome='light'] body {
+  --app-chrome: #faf9f5;
+  background: var(--app-chrome);
+}
+
+html[data-nook-chrome='dark'],
+html[data-nook-chrome='dark'] body {
+  --app-chrome: #171a16;
+  background: var(--app-chrome);
+}
+
 @media (prefers-color-scheme: dark) {
   html:not([data-nook-theme]) {
     --app-chrome: #171a16;
@@ -1768,7 +1780,7 @@ textarea:focus-visible {
 .v2-notes-view__grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 16px; }
 .v2-note-editor__toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .v2-note-editor__toolbar p { margin: 5px 0 0; color: var(--muted); font-size: 0.72rem; }
-.v2-note-editor__textarea { min-height: 460px; margin-top: 18px; resize: vertical; font-family: var(--font-geist-mono), monospace; font-size: 0.87rem; line-height: 1.75; }
+.v2-note-editor__textarea { min-height: 460px; margin-top: 18px; resize: vertical; font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif; font-size: 0.87rem; line-height: 1.75; }
 .v2-note-editor__save-note { margin: 10px 0 0; color: var(--muted); font-size: 0.72rem; }
 .v2-search-field { position: relative; margin-top: 18px; }
 .v2-search-field > svg { position: absolute; z-index: 1; top: 50%; left: 12px; color: var(--muted); transform: translateY(-50%); }

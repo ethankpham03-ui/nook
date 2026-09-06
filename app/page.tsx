@@ -443,11 +443,12 @@ export default function NookPage() {
 
   useEffect(() => {
     if (!snapshot) return;
-    document.documentElement.style.colorScheme = snapshot.settings.dark ? 'dark' : 'light';
+    const focusRoomIsDark = focusRoom !== null;
+    document.documentElement.style.colorScheme = focusRoomIsDark || snapshot.settings.dark ? 'dark' : 'light';
     document.documentElement.dataset.nookTheme = snapshot.settings.dark ? 'dark' : 'light';
     document.documentElement.lang = snapshot.settings.language;
-    syncNookAppChrome(snapshot.settings.dark);
-  }, [snapshot]);
+    syncNookAppChrome(focusRoomIsDark || snapshot.settings.dark);
+  }, [focusRoom, snapshot]);
 
   useEffect(() => {
     const cadence = snapshot?.focusTimer.running ? 250 : 30_000;

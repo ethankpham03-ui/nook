@@ -356,7 +356,7 @@ const englishCopy = {
     date: 'Note date',
     localNote: 'Local note',
     dailyNote: (date: string) => `Daily note for ${date}`,
-    placeholder: 'Write one line worth finding again. Markdown is welcome.',
+    placeholder: 'Write one line worth finding again.',
     saveNote: 'Changes stay on this device.',
     archive: {
       title: 'Archive',
@@ -879,7 +879,7 @@ const vietnameseCopy = {
     date: 'Ngày ghi chú',
     localNote: 'Ghi chú trên thiết bị',
     dailyNote: (date: string) => `Ghi chú ngày ${date}`,
-    placeholder: 'Viết một điều bạn sẽ muốn tìm lại. Có thể dùng Markdown.',
+    placeholder: 'Viết một điều bạn sẽ muốn tìm lại.',
     saveNote: 'Nội dung được lưu trên thiết bị này.',
     archive: {
       title: 'Kho ghi chú',

@@ -7,6 +7,7 @@ import {
   STANDALONE_VIEWPORT_CONTENT,
   createAppearanceBootstrap,
   createStandaloneViewportBootstrap,
+  syncNookAppChrome,
 // @ts-expect-error Node's --experimental-strip-types ESM loader requires the explicit .ts extension.
 } from './display-mode.ts';
 
@@ -130,6 +131,7 @@ test('uses the system appearance before a Nook preference has been saved', () =>
   const result = runAppearanceBootstrap({ prefersDark: true });
 
   assert.equal(result.root.dataset.nookTheme, 'dark');
+  assert.equal(result.root.dataset.nookChrome, 'dark');
   assert.equal(result.root.style.colorScheme, 'dark');
   assert.equal(result.root.style.backgroundColor, NOOK_APP_CHROME_COLORS.dark);
   assert.equal(result.attributes.content, NOOK_APP_CHROME_COLORS.dark);
@@ -147,6 +149,7 @@ test('lets the saved Nook theme override the operating-system theme before first
   });
 
   assert.equal(result.root.dataset.nookTheme, 'light');
+  assert.equal(result.root.dataset.nookChrome, 'light');
   assert.equal(result.root.style.colorScheme, 'light');
   assert.equal(result.root.style.backgroundColor, NOOK_APP_CHROME_COLORS.light);
   assert.equal(result.root.lang, 'vi');
@@ -158,6 +161,61 @@ test('falls back to the system appearance when saved data is invalid', () => {
   const result = runAppearanceBootstrap({ prefersDark: false, storedValue: '{broken' });
 
   assert.equal(result.root.dataset.nookTheme, 'light');
+  assert.equal(result.root.dataset.nookChrome, 'light');
   assert.equal(result.root.style.backgroundColor, NOOK_APP_CHROME_COLORS.light);
   assert.equal(result.attributes.content, NOOK_APP_CHROME_COLORS.light);
+});
+
+test('syncs every app-chrome surface when Focus Room changes appearance', () => {
+  const originalDocument = globalThis.document;
+  const root = {
+    dataset: {} as Record<string, string>,
+    style: {} as Record<string, string>,
+  };
+  const themeColors = Array.from({ length: 2 }, () => {
+    const attributes: Record<string, string> = { media: 'all' };
+    return {
+      attributes,
+      removeAttribute(name: string) {
+        delete attributes[name];
+      },
+      setAttribute(name: string, value: string) {
+        attributes[name] = value;
+      },
+    };
+  });
+
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      documentElement: root,
+      querySelectorAll(selector: string) {
+        assert.equal(selector, 'meta[name="theme-color"]');
+        return themeColors;
+      },
+    },
+  });
+
+  try {
+    syncNookAppChrome(true);
+    assert.equal(root.dataset.nookChrome, 'dark');
+    assert.equal(root.style.backgroundColor, NOOK_APP_CHROME_COLORS.dark);
+    themeColors.forEach(({ attributes }) => {
+      assert.equal(attributes.content, NOOK_APP_CHROME_COLORS.dark);
+      assert.equal(attributes.media, undefined);
+    });
+
+    syncNookAppChrome(false);
+    assert.equal(root.dataset.nookChrome, 'light');
+    assert.equal(root.style.backgroundColor, NOOK_APP_CHROME_COLORS.light);
+    themeColors.forEach(({ attributes }) => {
+      assert.equal(attributes.content, NOOK_APP_CHROME_COLORS.light);
+    });
+  } finally {
+    if (originalDocument) {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument });
+    } else {
+      Reflect.deleteProperty(globalThis, 'document');
+    }
+  }
 });
